@@ -12,8 +12,18 @@ export default defineConfig({
             input: ['resources/css/app.css', 'resources/js/app.ts'],
             refresh: true,
             fonts: [
-                bunny('Instrument Sans', {
+                bunny('IBM Plex Sans', {
                     weights: [400, 500, 600],
+                    variable: '--font-sans',
+                    fallbacks: [
+                        'Noto Sans Bengali',
+                        'ui-sans-serif',
+                        'system-ui',
+                        'sans-serif',
+                    ],
+                }),
+                bunny('Noto Sans Bengali', {
+                    weights: [400, 500],
                 }),
             ],
         }),

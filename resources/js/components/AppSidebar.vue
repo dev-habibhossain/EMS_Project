@@ -1,8 +1,29 @@
 <script setup lang="ts">
-import { Link } from '@inertiajs/vue3';
-import { BookOpen, FolderGit2, LayoutGrid } from '@lucide/vue';
+import { Link, usePage } from '@inertiajs/vue3';
+import { computed } from 'vue';
+import {
+    Activity,
+    ArrowLeftRight,
+    Banknote,
+    BookUser,
+    Boxes,
+    ClipboardList,
+    Factory,
+    FileText,
+    LayoutGrid,
+    Package,
+    Palette,
+    Receipt,
+    Settings,
+    ShieldAlert,
+    ShoppingCart,
+    Store,
+    SwatchBook,
+    Truck,
+    Users,
+    Warehouse,
+} from '@lucide/vue';
 import AppLogo from '@/components/AppLogo.vue';
-import NavFooter from '@/components/NavFooter.vue';
 import NavMain from '@/components/NavMain.vue';
 import NavUser from '@/components/NavUser.vue';
 import {
@@ -14,38 +35,120 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import { dashboard } from '@/routes';
-import type { NavItem } from '@/types';
+import { index as activityLogs } from '@/routes/activity-logs';
+import { index as batches } from '@/routes/batches';
+import { index as brands } from '@/routes/brands';
+import { index as challans } from '@/routes/challans';
+import { index as customers } from '@/routes/customers';
+import { dashboard, pos } from '@/routes';
+import { index as factories } from '@/routes/factories';
+import { damaged as damagedStock, index as inventory } from '@/routes/inventory';
+import { index as payments } from '@/routes/payments';
+import { index as products } from '@/routes/products';
+import { index as purchases } from '@/routes/purchases';
+import { index as qualityGrades } from '@/routes/quality-grades';
+import { index as reports } from '@/routes/reports';
+import { index as sales } from '@/routes/sales';
+import { index as salesReturns } from '@/routes/sales-returns';
+import { edit as profile } from '@/routes/profile';
+import { index as shades } from '@/routes/shades';
+import { index as smsLogs } from '@/routes/sms-logs';
+import { index as suppliers } from '@/routes/suppliers';
+import { index as tileSizes } from '@/routes/tile-sizes';
+import { index as transfers } from '@/routes/transfers';
+import { index as users } from '@/routes/users';
+import { index as warehouses } from '@/routes/warehouses';
+import type { NavGroup } from '@/types';
 
-const mainNavItems: NavItem[] = [
+const page = usePage();
+
+const navCatalog: NavGroup[] = [
     {
-        title: 'Dashboard',
-        href: dashboard(),
-        icon: LayoutGrid,
+        title: 'Work',
+        items: [
+            { title: 'Dashboard', href: dashboard(), icon: LayoutGrid, permission: 'dashboard.view' },
+            { title: 'POS', href: pos(), icon: ShoppingCart, permission: 'pos.use' },
+        ],
+    },
+    {
+        title: 'Catalog',
+        items: [
+            { title: 'Products', href: products(), icon: Package, permission: 'products.view' },
+            { title: 'Brands', href: brands(), icon: SwatchBook, permission: 'masterdata.manage' },
+            { title: 'Factories', href: factories(), icon: Factory, permission: 'masterdata.manage' },
+            { title: 'Sizes', href: tileSizes(), icon: Boxes, permission: 'masterdata.manage' },
+            { title: 'Shades', href: shades(), icon: Palette, permission: 'masterdata.manage' },
+            { title: 'Grades', href: qualityGrades(), icon: ClipboardList, permission: 'masterdata.manage' },
+            { title: 'Batches', href: batches(), icon: Boxes, permission: 'masterdata.manage' },
+        ],
+    },
+    {
+        title: 'Stock',
+        items: [
+            { title: 'Inventory', href: inventory(), icon: Warehouse, permission: 'inventory.view' },
+            { title: 'Warehouses', href: warehouses(), icon: Store, permission: 'warehouses.view' },
+            { title: 'Transfers', href: transfers(), icon: ArrowLeftRight, badge: 2, permission: 'transfers.create' },
+            { title: 'Damaged', href: damagedStock(), icon: ShieldAlert, permission: 'inventory.adjust' },
+        ],
+    },
+    {
+        title: 'Trade',
+        items: [
+            { title: 'Sales', href: sales(), icon: Receipt, permission: 'sales.view' },
+            { title: 'Purchases', href: purchases(), icon: Truck, permission: 'purchases.view' },
+            { title: 'Challans', href: challans(), icon: FileText, badge: 4, permission: 'challans.view' },
+            { title: 'Returns', href: salesReturns(), icon: ArrowLeftRight, permission: 'returns.sales' },
+        ],
+    },
+    {
+        title: 'Parties',
+        items: [
+            { title: 'Customers', href: customers(), icon: Users, permission: 'customers.view' },
+            { title: 'Suppliers', href: suppliers(), icon: BookUser, permission: 'suppliers.view' },
+        ],
+    },
+    {
+        title: 'Money',
+        items: [{ title: 'Payments', href: payments(), icon: Banknote, permission: 'payments.customer' }],
+    },
+    {
+        title: 'Insights',
+        items: [{ title: 'Reports', href: reports(), icon: ClipboardList, permission: 'reports.sales' }],
+    },
+    {
+        title: 'System',
+        items: [
+            { title: 'Users', href: users(), icon: Users, permission: 'users.manage' },
+            { title: 'Settings', href: profile(), icon: Settings },
+            { title: 'SMS log', href: smsLogs(), icon: FileText, permission: 'sms.send' },
+            { title: 'Activity', href: activityLogs(), icon: Activity, permission: 'audit.view' },
+        ],
     },
 ];
 
-const footerNavItems: NavItem[] = [
-    {
-        title: 'Repository',
-        href: 'https://github.com/laravel/vue-starter-kit',
-        icon: FolderGit2,
-    },
-    {
-        title: 'Documentation',
-        href: 'https://laravel.com/docs/starter-kits#vue',
-        icon: BookOpen,
-    },
-];
+const navGroups = computed(() => {
+    const permissions = page.props.auth.permissions ?? [];
+
+    return navCatalog
+        .map((group) => ({
+            ...group,
+            items: group.items.filter(
+                (item) =>
+                    item.permission === undefined ||
+                    permissions.includes(item.permission),
+            ),
+        }))
+        .filter((group) => group.items.length > 0);
+});
 </script>
 
 <template>
-    <Sidebar collapsible="icon" variant="inset">
-        <SidebarHeader>
+    <Sidebar collapsible="icon">
+        <SidebarHeader class="border-b border-[#2a2622] px-2 py-3">
             <SidebarMenu>
                 <SidebarMenuItem>
-                    <SidebarMenuButton size="lg" as-child>
-                        <Link :href="dashboard()">
+                    <SidebarMenuButton size="lg" as-child class="hover:bg-[#2a2622]">
+                        <Link :href="dashboard()" class="gap-2">
                             <AppLogo />
                         </Link>
                     </SidebarMenuButton>
@@ -53,12 +156,11 @@ const footerNavItems: NavItem[] = [
             </SidebarMenu>
         </SidebarHeader>
 
-        <SidebarContent>
-            <NavMain :items="mainNavItems" />
+        <SidebarContent class="gap-0 overflow-y-auto">
+            <NavMain :groups="navGroups" />
         </SidebarContent>
 
-        <SidebarFooter>
-            <NavFooter :items="footerNavItems" />
+        <SidebarFooter class="border-t border-[#2a2622]">
             <NavUser />
         </SidebarFooter>
     </Sidebar>

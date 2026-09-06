@@ -1,19 +1,13 @@
 <script setup lang="ts">
 import { usePage } from '@inertiajs/vue3';
-import AppLogoIcon from '@/components/AppLogoIcon.vue';
+import KilnMark from '@/components/KilnMark.vue';
 
 const name = usePage().props.name;
 </script>
 
 <template>
-    <div
-        class="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-md"
-    >
-        <AppLogoIcon class="size-5 fill-current text-white dark:text-black" />
-    </div>
-    <div class="ml-1 grid flex-1 text-left text-sm">
-        <span class="mb-0.5 truncate leading-tight font-semibold">{{
-            name
-        }}</span>
+    <KilnMark class="size-5 shrink-0 text-[#d36a48]" />
+    <div class="ml-1 grid min-w-0 flex-1 text-left text-[13px]">
+        <span class="truncate leading-tight font-semibold">{{ name }}</span>
     </div>
 </template>
