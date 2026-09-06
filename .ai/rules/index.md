@@ -5,6 +5,7 @@ Before planning or editing, find the row whose globs match the file's path and r
 | Applies to | Rule file |
 | --- | --- |
 | resources/js/pages/auth/** | .ai/rules/auth.md |
+| resources/css/app.css | .ai/rules/css.md |
 | database/migrations/** | .ai/rules/migrations.md |
 | app/Models/** | .ai/rules/models.md |
 | resources/js/pages/Dashboard.vue | .ai/rules/pages.md |

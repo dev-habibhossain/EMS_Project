@@ -1,15 +1,23 @@
 export type DashboardTone = 'warning' | 'info' | 'danger';
 
+export type DashboardAttentionLine = {
+    title: string;
+    meta: string;
+};
+
 export type DashboardAttentionItem = {
     label: string;
     count: number;
     tone: DashboardTone;
+    href: string;
+    items: DashboardAttentionLine[];
 };
 
 export type DashboardDocumentRow = {
     number: string;
     party: string;
     amount: string;
+    href: string;
     due?: string;
     status?: string;
 };
@@ -33,6 +41,8 @@ export type DashboardPageProps = {
     filters: {
         warehouse: string;
         period: string;
+        warehouses: string[];
+        periods: string[];
     };
     today: {
         sales: string;

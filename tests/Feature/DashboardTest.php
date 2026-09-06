@@ -32,11 +32,29 @@ test('owner overview renders the kiln dashboard queues', function () {
                 ->has('due_opened')
                 ->has('purchases')
                 ->has('invoices'))
-            ->has('attention')
-            ->has('recentSales')
-            ->has('recentPurchases')
+            ->has('attention', 3)
+            ->has('attention.0.items')
+            ->has('recentSales', 8)
+            ->has('recentPurchases', 8)
             ->has('topProducts')
-            ->has('highestDue'));
+            ->has('highestDue')
+            ->has('filters.warehouses')
+            ->has('filters.periods'));
+});
+
+test('the kiln shell uses paper ink and ibm plex by default', function () {
+    $user = User::factory()->create();
+
+    $html = $this->actingAs($user)
+        ->get(route('dashboard'))
+        ->assertOk()
+        ->getContent();
+
+    expect($html)
+        ->toContain('ibm-plex-sans')
+        ->and($html)->toContain('#F3EFE8')
+        ->and($html)->toContain('#1C1916')
+        ->and($html)->not->toContain('Instrument Sans');
 });
 
 test('overview shows the assigned role name from the database', function () {

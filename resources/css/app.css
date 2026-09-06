@@ -61,35 +61,8 @@
     --color-sidebar-ring: var(--sidebar-ring);
 }
 
-/*
-  The default border color has changed to `currentColor` in Tailwind CSS v4,
-  so we've added these compatibility styles to make sure everything still
-  looks the same as it did with Tailwind CSS v3.
-
-  If we ever want to remove these styles, we need to add an explicit border
-  color utility to any element that depends on these defaults.
-*/
-@layer base {
-    *,
-    ::after,
-    ::before,
-    ::backdrop,
-    ::file-selector-button {
-        border-color: var(--color-gray-200, currentColor);
-    }
-}
-
-@layer utilities {
-    body,
-    html {
-        --font-sans:
-            'IBM Plex Sans', 'Noto Sans Bengali', ui-sans-serif, system-ui,
-            sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
-            'Noto Color Emoji';
-    }
-}
-
 :root {
+    color-scheme: light;
     --background: #f3efe8;
     --foreground: #1c1916;
     --card: #fffcf8;
@@ -127,6 +100,7 @@
 }
 
 .dark {
+    color-scheme: dark;
     --background: #161412;
     --foreground: #ede6db;
     --card: #1c1916;
@@ -163,10 +137,29 @@
 }
 
 @layer base {
-    * {
-        @apply border-border outline-ring/50;
+    *,
+    ::after,
+    ::before,
+    ::backdrop,
+    ::file-selector-button {
+        border-color: var(--border);
     }
+
+    html {
+        font-size: 14px;
+        background-color: #f3efe8;
+        color: #1c1916;
+    }
+
+    html.dark {
+        background-color: #161412;
+        color: #ede6db;
+    }
+
     body {
-        @apply bg-background text-foreground;
+        @apply bg-background font-sans text-foreground antialiased;
+        font-family:
+            'IBM Plex Sans', 'Noto Sans Bengali', ui-sans-serif, system-ui,
+            sans-serif;
     }
 }

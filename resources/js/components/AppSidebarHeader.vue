@@ -20,7 +20,7 @@ const page = usePage();
 
 <template>
     <header
-        class="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-[#d9d1c4] bg-[#fffcf8] px-5"
+        class="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-[#D9D1C4] bg-[#FFFcf8] px-5 text-[#1C1916]"
     >
         <div class="flex min-w-0 items-center gap-2">
             <SidebarTrigger class="-ml-1 text-[#1c1916]" />
