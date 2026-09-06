@@ -73,6 +73,33 @@ class User extends Authenticatable
         return $this->belongsTo(Role::class);
     }
 
+    public function hasPermission(string $slug): bool
+    {
+        $this->loadMissing('role.permissions');
+
+        if ($this->role === null) {
+            return false;
+        }
+
+        return $this->role->permissions->contains(
+            fn (Permission $permission): bool => $permission->slug === $slug,
+        );
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function permissionSlugs(): array
+    {
+        $this->loadMissing('role.permissions');
+
+        if ($this->role === null) {
+            return [];
+        }
+
+        return $this->role->permissions->pluck('slug')->values()->all();
+    }
+
     /**
      * @return BelongsTo<Warehouse, $this>
      */
