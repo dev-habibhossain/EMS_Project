@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { Head, Link, setLayoutProps } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { Head, Link, setLayoutProps, usePage } from '@inertiajs/vue3';
+import { computed, ref } from 'vue';
 import { dashboard, pos } from '@/routes';
 import { index as purchases } from '@/routes/purchases';
 import { index as sales } from '@/routes/sales';
@@ -14,6 +14,9 @@ const props = defineProps<DashboardPageProps>();
 
 const warehouse = ref(props.filters.warehouse);
 const period = ref(props.filters.period);
+const canUsePos = computed(() =>
+    (usePage().props.auth.permissions ?? []).includes('pos.use'),
+);
 
 setLayoutProps({
     breadcrumbs: [
@@ -106,6 +109,7 @@ function hasDue(row: DashboardDocumentRow): boolean {
                 </select>
 
                 <Link
+                    v-if="canUsePos"
                     :href="pos()"
                     class="inline-flex h-8 items-center rounded-[4px] bg-[#b44422] px-3 text-[13px] font-medium text-[#fffcf8] hover:bg-[#97381c] focus-visible:ring-[2px] focus-visible:ring-[#1f6b5a] focus-visible:outline-none"
                 >

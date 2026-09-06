@@ -100,6 +100,16 @@ class User extends Authenticatable
         return $this->role->permissions->pluck('slug')->values()->all();
     }
 
+    public function isAdmin(): bool
+    {
+        return $this->role?->slug === 'admin';
+    }
+
+    public function isSalesShop(): bool
+    {
+        return $this->role?->slug === 'sales_shop';
+    }
+
     /**
      * @return BelongsTo<Warehouse, $this>
      */

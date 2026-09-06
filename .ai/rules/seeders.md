@@ -5,5 +5,5 @@ paths:
 
 # Seeders
 
-## Seed six real roles then three dummy rows
-RBAC is seeded from docs/04, not dummy roles: Owner, Admin, Manager, Salesperson, Warehouse, Accountant plus the permission catalog including roles.manage. Owner is the only role granted roles.manage. DemoDataSeeder then inserts three dummy rows per operational table in FK order (units/roles first, documents last). Login owner is test@example.com / password.
+## Two shop roles admin and sales shop
+Single showroom uses two roles only: Admin (slug admin, the owner) and Sales shop (slug sales_shop). Seed mandatory plus recommended grants from docs/04. Admin gets the full shop including users/settings; Sales shop gets POS, sales, customers, inventory view, and recommended challans/returns/ledger. Hide nav items the role cannot use. DemoDataSeeder inserts three dummy rows per operational table in FK order. Login admin is test@example.com / password.

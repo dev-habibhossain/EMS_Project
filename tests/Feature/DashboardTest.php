@@ -25,7 +25,7 @@ test('owner overview renders the kiln dashboard queues', function () {
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('Dashboard')
-            ->where('viewer.role', 'Owner')
+            ->where('viewer.role', 'Admin')
             ->has('today', fn (Assert $today) => $today
                 ->has('sales')
                 ->has('collected')

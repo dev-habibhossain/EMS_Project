@@ -6,14 +6,13 @@ use App\Models\Permission;
 use App\Models\Role;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Collection;
 
 class RolePermissionSeeder extends Seeder
 {
     use WithoutModelEvents;
 
     /**
-     * Seed the six shop roles and the permission catalog from docs/04.
+     * Seed the two single-shop roles and the permission catalog.
      */
     public function run(): void
     {
@@ -29,26 +28,136 @@ class RolePermissionSeeder extends Seeder
                 'slug' => $role['slug'],
             ]);
 
+            $slugs = collect($role['mandatory'])
+                ->merge($role['recommended'])
+                ->unique()
+                ->values();
+
             $model->permissions()->attach(
-                $this->grantSlugs($role['slug'], $permissions->keys())
-                    ->map(fn (string $slug): int => $permissions[$slug])
-                    ->all(),
+                $slugs->map(fn (string $slug): int => $permissions[$slug])->all(),
             );
         }
     }
 
     /**
-     * @return list<array{name: string, slug: string}>
+     * @return list<array{name: string, slug: string, mandatory: list<string>, recommended: list<string>}>
      */
     private function roles(): array
     {
         return [
-            ['name' => 'Owner', 'slug' => 'owner'],
-            ['name' => 'Admin', 'slug' => 'admin'],
-            ['name' => 'Manager', 'slug' => 'manager'],
-            ['name' => 'Salesperson', 'slug' => 'salesperson'],
-            ['name' => 'Warehouse', 'slug' => 'warehouse'],
-            ['name' => 'Accountant', 'slug' => 'accountant'],
+            [
+                'name' => 'Admin',
+                'slug' => 'admin',
+                'mandatory' => $this->adminMandatory(),
+                'recommended' => $this->adminRecommended(),
+            ],
+            [
+                'name' => 'Sales shop',
+                'slug' => 'sales_shop',
+                'mandatory' => $this->salesShopMandatory(),
+                'recommended' => $this->salesShopRecommended(),
+            ],
+        ];
+    }
+
+    /**
+     * Work the shop owner must be able to do alone.
+     *
+     * @return list<string>
+     */
+    private function adminMandatory(): array
+    {
+        return [
+            'dashboard.view',
+            'products.view',
+            'products.create',
+            'products.update',
+            'products.delete',
+            'masterdata.manage',
+            'inventory.view',
+            'inventory.adjust',
+            'warehouses.view',
+            'warehouses.manage',
+            'transfers.create',
+            'transfers.dispatch',
+            'transfers.receive',
+            'pos.use',
+            'sales.view',
+            'sales.cancel',
+            'purchases.view',
+            'purchases.create',
+            'purchases.receive',
+            'purchases.return',
+            'customers.view',
+            'customers.manage',
+            'customers.ledger',
+            'customers.credit.override',
+            'suppliers.view',
+            'suppliers.manage',
+            'suppliers.ledger',
+            'payments.customer',
+            'payments.supplier',
+            'payments.reverse',
+            'returns.sales',
+            'returns.purchase',
+            'challans.view',
+            'challans.create',
+            'challans.dispatch',
+            'reports.sales',
+            'reports.stock',
+            'reports.finance',
+            'users.manage',
+            'settings.manage',
+        ];
+    }
+
+    /**
+     * Extra owner controls that a typical showroom should still have.
+     *
+     * @return list<string>
+     */
+    private function adminRecommended(): array
+    {
+        return [
+            'sales.discount.unlimited',
+            'roles.manage',
+            'sms.send',
+            'audit.view',
+        ];
+    }
+
+    /**
+     * Counter work a sales shop user must do every day.
+     *
+     * @return list<string>
+     */
+    private function salesShopMandatory(): array
+    {
+        return [
+            'dashboard.view',
+            'pos.use',
+            'sales.view',
+            'products.view',
+            'inventory.view',
+            'customers.view',
+            'customers.manage',
+            'payments.customer',
+        ];
+    }
+
+    /**
+     * Counter extras a typical showroom should enable for sales shop.
+     *
+     * @return list<string>
+     */
+    private function salesShopRecommended(): array
+    {
+        return [
+            'customers.ledger',
+            'challans.view',
+            'challans.create',
+            'returns.sales',
+            'reports.sales',
         ];
     }
 
@@ -103,119 +212,5 @@ class RolePermissionSeeder extends Seeder
             ['name' => 'Send SMS', 'slug' => 'sms.send', 'module' => 'sms'],
             ['name' => 'View audit log', 'slug' => 'audit.view', 'module' => 'audit'],
         ];
-    }
-
-    /**
-     * @param  Collection<int, string>  $allSlugs
-     * @return Collection<int, string>
-     */
-    private function grantSlugs(string $roleSlug, Collection $allSlugs): Collection
-    {
-        return match ($roleSlug) {
-            'owner' => $allSlugs->values(),
-            'admin' => $allSlugs->reject(fn (string $slug): bool => $slug === 'roles.manage')->values(),
-            'manager' => collect([
-                'dashboard.view',
-                'products.view',
-                'products.create',
-                'products.update',
-                'products.delete',
-                'masterdata.manage',
-                'inventory.view',
-                'inventory.adjust',
-                'warehouses.view',
-                'warehouses.manage',
-                'transfers.create',
-                'transfers.dispatch',
-                'transfers.receive',
-                'pos.use',
-                'sales.view',
-                'sales.cancel',
-                'sales.discount.unlimited',
-                'purchases.view',
-                'purchases.create',
-                'purchases.receive',
-                'purchases.return',
-                'customers.view',
-                'customers.manage',
-                'customers.ledger',
-                'customers.credit.override',
-                'suppliers.view',
-                'suppliers.manage',
-                'suppliers.ledger',
-                'payments.customer',
-                'payments.supplier',
-                'returns.sales',
-                'returns.purchase',
-                'challans.view',
-                'challans.create',
-                'challans.dispatch',
-                'reports.sales',
-                'reports.stock',
-                'reports.finance',
-                'sms.send',
-            ]),
-            'salesperson' => collect([
-                'dashboard.view',
-                'products.view',
-                'inventory.view',
-                'warehouses.view',
-                'pos.use',
-                'sales.view',
-                'customers.view',
-                'customers.manage',
-                'customers.ledger',
-                'payments.customer',
-                'returns.sales',
-                'challans.view',
-                'challans.create',
-                'reports.sales',
-            ]),
-            'warehouse' => collect([
-                'dashboard.view',
-                'products.view',
-                'inventory.view',
-                'inventory.adjust',
-                'warehouses.view',
-                'transfers.create',
-                'transfers.dispatch',
-                'transfers.receive',
-                'purchases.receive',
-                'sales.view',
-                'customers.view',
-                'suppliers.view',
-                'returns.sales',
-                'challans.view',
-                'challans.dispatch',
-                'reports.stock',
-            ]),
-            'accountant' => collect([
-                'dashboard.view',
-                'products.view',
-                'inventory.view',
-                'warehouses.view',
-                'sales.view',
-                'sales.cancel',
-                'purchases.view',
-                'customers.view',
-                'customers.manage',
-                'customers.ledger',
-                'customers.credit.override',
-                'suppliers.view',
-                'suppliers.manage',
-                'suppliers.ledger',
-                'payments.customer',
-                'payments.supplier',
-                'payments.reverse',
-                'returns.sales',
-                'returns.purchase',
-                'challans.view',
-                'reports.sales',
-                'reports.stock',
-                'reports.finance',
-                'sms.send',
-            ]),
-            default => collect(),
-        };
     }
 }

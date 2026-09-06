@@ -13,6 +13,7 @@ export type NavItem = {
     isActive?: boolean;
     badge?: string | number;
     comingSoon?: boolean;
+    permission?: string;
 };
 
 export type NavGroup = {

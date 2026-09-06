@@ -18,7 +18,7 @@ class DashboardController extends Controller
 
         return Inertia::render('Dashboard', [
             'viewer' => [
-                'role' => $user?->role?->name ?? 'Owner',
+                'role' => $user?->role?->name ?? 'Admin',
                 'warehouse' => $warehouse,
             ],
             'filters' => [

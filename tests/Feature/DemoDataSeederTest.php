@@ -48,11 +48,12 @@ test('the database seeder inserts three dummy rows for each operational table', 
     $this->assertDatabaseCount('sms_logs', 3);
     $this->assertDatabaseCount('activity_logs', 3);
 
-    $owner = User::query()->where('email', 'test@example.com')->first();
+    $admin = User::query()->where('email', 'test@example.com')->first();
 
-    expect($owner)->not->toBeNull()
-        ->and($owner->role->slug)->toBe('owner')
-        ->and(Role::query()->count())->toBe(6)
+    expect($admin)->not->toBeNull()
+        ->and($admin->role->slug)->toBe('admin')
+        ->and($admin->isAdmin())->toBeTrue()
+        ->and(Role::query()->count())->toBe(2)
         ->and(Product::query()->count())->toBe(3)
         ->and(Sale::query()->count())->toBe(3)
         ->and(WarehouseStock::query()->count())->toBe(3);

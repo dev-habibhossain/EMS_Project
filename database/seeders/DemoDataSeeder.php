@@ -180,29 +180,29 @@ class DemoDataSeeder extends Seeder
      */
     private function seedUsers(Collection $warehouses): Collection
     {
-        $roles = Role::query()->whereIn('slug', ['owner', 'admin', 'salesperson'])->get()->keyBy('slug');
+        $roles = Role::query()->whereIn('slug', ['admin', 'sales_shop'])->get()->keyBy('slug');
 
         return collect([
             [
-                'name' => 'Habib Owner',
-                'username' => 'owner',
+                'name' => 'Habib Admin',
+                'username' => 'admin',
                 'email' => 'test@example.com',
                 'phone' => '01710000001',
-                'role_id' => $roles['owner']->id,
-            ],
-            [
-                'name' => 'Nadia Admin',
-                'username' => 'admin',
-                'email' => 'admin@example.com',
-                'phone' => '01710000002',
                 'role_id' => $roles['admin']->id,
             ],
             [
                 'name' => 'Karim Sales',
                 'username' => 'sales',
                 'email' => 'sales@example.com',
+                'phone' => '01710000002',
+                'role_id' => $roles['sales_shop']->id,
+            ],
+            [
+                'name' => 'Nila Sales',
+                'username' => 'counter',
+                'email' => 'counter@example.com',
                 'phone' => '01710000003',
-                'role_id' => $roles['salesperson']->id,
+                'role_id' => $roles['sales_shop']->id,
             ],
         ])->map(fn (array $user): User => User::query()->create([
             ...$user,

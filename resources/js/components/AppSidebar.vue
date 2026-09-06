@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { Link } from '@inertiajs/vue3';
+import { Link, usePage } from '@inertiajs/vue3';
+import { computed } from 'vue';
 import {
     Activity,
     ArrowLeftRight,
@@ -59,69 +60,86 @@ import { index as users } from '@/routes/users';
 import { index as warehouses } from '@/routes/warehouses';
 import type { NavGroup } from '@/types';
 
-const navGroups: NavGroup[] = [
+const page = usePage();
+
+const navCatalog: NavGroup[] = [
     {
         title: 'Work',
         items: [
-            { title: 'Dashboard', href: dashboard(), icon: LayoutGrid },
-            { title: 'POS', href: pos(), icon: ShoppingCart },
+            { title: 'Dashboard', href: dashboard(), icon: LayoutGrid, permission: 'dashboard.view' },
+            { title: 'POS', href: pos(), icon: ShoppingCart, permission: 'pos.use' },
         ],
     },
     {
         title: 'Catalog',
         items: [
-            { title: 'Products', href: products(), icon: Package },
-            { title: 'Brands', href: brands(), icon: SwatchBook },
-            { title: 'Factories', href: factories(), icon: Factory },
-            { title: 'Sizes', href: tileSizes(), icon: Boxes },
-            { title: 'Shades', href: shades(), icon: Palette },
-            { title: 'Grades', href: qualityGrades(), icon: ClipboardList },
-            { title: 'Batches', href: batches(), icon: Boxes },
+            { title: 'Products', href: products(), icon: Package, permission: 'products.view' },
+            { title: 'Brands', href: brands(), icon: SwatchBook, permission: 'masterdata.manage' },
+            { title: 'Factories', href: factories(), icon: Factory, permission: 'masterdata.manage' },
+            { title: 'Sizes', href: tileSizes(), icon: Boxes, permission: 'masterdata.manage' },
+            { title: 'Shades', href: shades(), icon: Palette, permission: 'masterdata.manage' },
+            { title: 'Grades', href: qualityGrades(), icon: ClipboardList, permission: 'masterdata.manage' },
+            { title: 'Batches', href: batches(), icon: Boxes, permission: 'masterdata.manage' },
         ],
     },
     {
         title: 'Stock',
         items: [
-            { title: 'Inventory', href: inventory(), icon: Warehouse },
-            { title: 'Warehouses', href: warehouses(), icon: Store },
-            { title: 'Transfers', href: transfers(), icon: ArrowLeftRight, badge: 2 },
-            { title: 'Damaged', href: damagedStock(), icon: ShieldAlert },
+            { title: 'Inventory', href: inventory(), icon: Warehouse, permission: 'inventory.view' },
+            { title: 'Warehouses', href: warehouses(), icon: Store, permission: 'warehouses.view' },
+            { title: 'Transfers', href: transfers(), icon: ArrowLeftRight, badge: 2, permission: 'transfers.create' },
+            { title: 'Damaged', href: damagedStock(), icon: ShieldAlert, permission: 'inventory.adjust' },
         ],
     },
     {
         title: 'Trade',
         items: [
-            { title: 'Sales', href: sales(), icon: Receipt },
-            { title: 'Purchases', href: purchases(), icon: Truck },
-            { title: 'Challans', href: challans(), icon: FileText, badge: 4 },
-            { title: 'Returns', href: salesReturns(), icon: ArrowLeftRight },
+            { title: 'Sales', href: sales(), icon: Receipt, permission: 'sales.view' },
+            { title: 'Purchases', href: purchases(), icon: Truck, permission: 'purchases.view' },
+            { title: 'Challans', href: challans(), icon: FileText, badge: 4, permission: 'challans.view' },
+            { title: 'Returns', href: salesReturns(), icon: ArrowLeftRight, permission: 'returns.sales' },
         ],
     },
     {
         title: 'Parties',
         items: [
-            { title: 'Customers', href: customers(), icon: Users },
-            { title: 'Suppliers', href: suppliers(), icon: BookUser },
+            { title: 'Customers', href: customers(), icon: Users, permission: 'customers.view' },
+            { title: 'Suppliers', href: suppliers(), icon: BookUser, permission: 'suppliers.view' },
         ],
     },
     {
         title: 'Money',
-        items: [{ title: 'Payments', href: payments(), icon: Banknote }],
+        items: [{ title: 'Payments', href: payments(), icon: Banknote, permission: 'payments.customer' }],
     },
     {
         title: 'Insights',
-        items: [{ title: 'Reports', href: reports(), icon: ClipboardList }],
+        items: [{ title: 'Reports', href: reports(), icon: ClipboardList, permission: 'reports.sales' }],
     },
     {
         title: 'System',
         items: [
-            { title: 'Users', href: users(), icon: Users },
+            { title: 'Users', href: users(), icon: Users, permission: 'users.manage' },
             { title: 'Settings', href: profile(), icon: Settings },
-            { title: 'SMS log', href: smsLogs(), icon: FileText },
-            { title: 'Activity', href: activityLogs(), icon: Activity },
+            { title: 'SMS log', href: smsLogs(), icon: FileText, permission: 'sms.send' },
+            { title: 'Activity', href: activityLogs(), icon: Activity, permission: 'audit.view' },
         ],
     },
 ];
+
+const navGroups = computed(() => {
+    const permissions = page.props.auth.permissions ?? [];
+
+    return navCatalog
+        .map((group) => ({
+            ...group,
+            items: group.items.filter(
+                (item) =>
+                    item.permission === undefined ||
+                    permissions.includes(item.permission),
+            ),
+        }))
+        .filter((group) => group.items.length > 0);
+});
 </script>
 
 <template>
