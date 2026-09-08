@@ -399,13 +399,70 @@ const submitCheckout = () => {
             isSubmitting.value = false;
             const flashReceipt = ((page.props as any).flash?.receipt ||
                 props.flash?.receipt) as PosInvoiceReceipt | undefined;
+
             if (flashReceipt) {
                 receiptData.value = flashReceipt;
-                showReceiptModal.value = true;
             } else {
-                alert("Sale completed successfully!");
-                resetPos();
+                receiptData.value = {
+                    invoice_number:
+                        "INV-" +
+                        new Date()
+                            .toISOString()
+                            .slice(0, 10)
+                            .replace(/-/g, "") +
+                        "-" +
+                        Math.floor(1000 + Math.random() * 9000),
+                    sale_at: new Date().toLocaleDateString("en-US", {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                    }),
+                    customer_id: selectedCustomerId.value,
+                    customer_name:
+                        activeCustomer.value?.name ||
+                        (isWalkInMode.value
+                            ? "Walk-in Retail Customer"
+                            : "Customer"),
+                    customer_phone:
+                        walkInPhone.value ||
+                        activeCustomer.value?.phone ||
+                        null,
+                    customer_code: activeCustomer.value?.code || "C-WALKIN",
+                    is_walk_in: isWalkInMode.value,
+                    warehouse_name: currentWarehouse.value?.name || "Showroom",
+                    warehouse_code: currentWarehouse.value?.code || "SR-1",
+                    cashier_name:
+                        (page.props.auth as any)?.user?.name || "Cashier",
+                    items: cart.value.map((item) => ({
+                        product_name: item.product_name,
+                        sku: item.sku,
+                        batch_code: item.batch_code,
+                        shade_code: item.shade_code,
+                        grade_code: item.quality_grade_code,
+                        unit_code: item.unit_code,
+                        qty_input: item.qty_input,
+                        qty_sqft: item.qty_sqft,
+                        unit_price: item.unit_price,
+                        discount_amount: item.discount_amount,
+                        line_total: item.line_total,
+                    })),
+                    subtotal: cartSubtotal.value,
+                    discount_total: discountTotal.value,
+                    grand_total: grandTotal.value,
+                    paid_total: paidTotal.value,
+                    due_total: dueTotal.value,
+                    change_amount: changeAmount.value,
+                    payment_method: paymentMethod.value.toUpperCase(),
+                };
             }
+
+            printFormat.value = "thermal";
+            showReceiptModal.value = true;
+            cart.value = [];
+            discountTotal.value = 0;
+            paidAmountInput.value = 0;
         },
         onError: (errors) => {
             isSubmitting.value = false;
@@ -840,9 +897,7 @@ onUnmounted(() => {
                                     v-else-if="product.lots.length === 1"
                                     class="font-mono text-[11px] font-medium text-[#1C1916] dark:text-[#EDE6DB]"
                                 >
-                                    {{
-                                        product.lots[0].batch_code || "B-STD"
-                                    }}
+                                    {{ product.lots[0].batch_code || "B-STD" }}
                                     ·
                                     {{ product.lots[0].shade_code || "STD" }} ·
                                     Gr.{{ product.lots[0].quality_grade_code }}
@@ -1930,17 +1985,21 @@ onUnmounted(() => {
                     <div class="flex items-center gap-2">
                         <button
                             @click="triggerPrint"
-                            class="flex items-center gap-1.5 rounded-lg bg-[#1C1916] px-4 py-2 text-xs font-bold text-[#FFFFFF] transition-colors hover:bg-[#B44422] dark:bg-[#EDE6DB] dark:text-[#1C1916] dark:hover:bg-[#D36A48] dark:hover:text-[#FFFFFF]"
+                            class="flex items-center gap-2 rounded-lg bg-[#B44422] px-5 py-2.5 text-xs font-bold text-[#FFFFFF] shadow-sm transition-all hover:bg-[#96371B] active:scale-95 dark:bg-[#D36A48] dark:hover:bg-[#B44422]"
                         >
-                            <Printer class="h-3.5 w-3.5" />
-                            <span>Print Invoice</span>
+                            <Printer class="h-4 w-4" />
+                            <span>{{
+                                printFormat === "thermal"
+                                    ? "Print Thermal Receipt (80mm)"
+                                    : "Print A4 Invoice"
+                            }}</span>
                         </button>
 
                         <button
                             @click="resetPos"
-                            class="flex items-center gap-1.5 rounded-lg border border-[#E2DDD5] bg-[#F7F5F0] px-4 py-2 text-xs font-bold text-[#1C1916] transition-colors hover:bg-[#EAE4D9] dark:border-[#332E28] dark:bg-[#23201C] dark:text-[#EDE6DB]"
+                            class="flex items-center gap-1.5 rounded-lg border border-[#E2DDD5] bg-[#F7F5F0] px-4 py-2.5 text-xs font-bold text-[#1C1916] transition-colors hover:bg-[#EAE4D9] dark:border-[#332E28] dark:bg-[#23201C] dark:text-[#EDE6DB]"
                         >
-                            <span>New Sale [Esc]</span>
+                            <span>Close & New Sale [Esc]</span>
                         </button>
                     </div>
                 </div>
@@ -1951,22 +2010,36 @@ onUnmounted(() => {
 
 <style>
 @media print {
+    @page {
+        margin: 0;
+        size: auto;
+    }
     body * {
-        visibility: hidden;
+        visibility: hidden !important;
     }
     #printable-receipt,
     #printable-receipt * {
-        visibility: visible;
+        visibility: visible !important;
     }
     #printable-receipt {
-        position: absolute;
-        left: 0;
-        top: 0;
-        width: 100%;
-        margin: 0;
-        padding: 0;
+        position: fixed !important;
+        left: 0 !important;
+        top: 0 !important;
+        width: 100% !important;
+        max-width: 80mm !important;
+        margin: 0 !important;
+        padding: 2mm 3mm !important;
         border: none !important;
         box-shadow: none !important;
+        background: #ffffff !important;
+        color: #000000 !important;
+        font-size: 11px !important;
+        line-height: 1.25 !important;
+    }
+    #printable-receipt.format-a4 {
+        max-width: 100% !important;
+        width: 100% !important;
+        padding: 10mm !important;
     }
 }
 </style>

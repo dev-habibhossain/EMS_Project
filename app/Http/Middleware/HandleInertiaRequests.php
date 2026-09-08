@@ -47,6 +47,12 @@ class HandleInertiaRequests extends Middleware
                 'permissions' => $user?->permissionSlugs() ?? [],
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
+            'flash' => [
+                'receipt' => fn () => $request->session()->get('receipt'),
+                'success' => fn () => $request->session()->get('success'),
+                'error' => fn () => $request->session()->get('error'),
+                'toast' => fn () => $request->session()->get('toast'),
+            ],
         ];
     }
 }
