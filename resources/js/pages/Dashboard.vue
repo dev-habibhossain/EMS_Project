@@ -17,6 +17,12 @@ const props = defineProps<DashboardPageProps>();
 
 const warehouse = ref(props.filters.warehouse);
 const period = ref(props.filters.period);
+const salesFilter = ref<"all" | "due" | "paid">("all");
+const expandedAttention = ref<Record<string, boolean>>({
+    0: true,
+    1: true,
+    2: true,
+});
 
 const isSalesShop = computed(
     () =>
@@ -66,6 +72,18 @@ const todayMetrics = computed(() => {
     ];
 });
 
+const collectionPercent = computed(() => {
+    return isSalesShop.value ? 81 : 69;
+});
+
+const duePercent = computed(() => {
+    return 100 - collectionPercent.value;
+});
+
+function toggleAttention(index: number): void {
+    expandedAttention.value[index] = !expandedAttention.value[index];
+}
+
 function handleKeydown(event: KeyboardEvent): void {
     if (event.key === "F1" && canUsePos.value) {
         event.preventDefault();
@@ -81,26 +99,38 @@ onUnmounted(() => {
     window.removeEventListener("keydown", handleKeydown);
 });
 
-function toneClass(tone: DashboardTone): string {
+function toneBadge(tone: DashboardTone): { badge: string; dot: string } {
     if (tone === "warning") {
-        return "border-[#b7791f]/30 bg-[#b7791f]/10 text-[#b7791f]";
+        return {
+            badge: "border-[#b7791f]/30 bg-[#b7791f]/10 text-[#b7791f]",
+            dot: "bg-[#b7791f]",
+        };
     }
 
     if (tone === "danger") {
-        return "border-[#b42318]/30 bg-[#b42318]/10 text-[#b42318]";
+        return {
+            badge: "border-[#b42318]/30 bg-[#b42318]/10 text-[#b42318]",
+            dot: "bg-[#b42318]",
+        };
     }
 
-    return "border-[#2b5f8a]/30 bg-[#2b5f8a]/10 text-[#2b5f8a]";
+    return {
+        badge: "border-[#2b5f8a]/30 bg-[#2b5f8a]/10 text-[#2b5f8a]",
+        dot: "bg-[#2b5f8a]",
+    };
 }
 
-function statusClass(status?: string): string {
+function methodBadge(status?: string): { badge: string; dot: string } {
     if (
         status === "received" ||
         status === "posted" ||
         status === "Cash" ||
         status === "Bank"
     ) {
-        return "border-[#2f7d4a]/30 bg-[#2f7d4a]/10 text-[#2f7d4a]";
+        return {
+            badge: "border-[#2f7d4a]/25 bg-[#2f7d4a]/8 text-[#2f7d4a]",
+            dot: "bg-[#2f7d4a]",
+        };
     }
 
     if (
@@ -109,15 +139,33 @@ function statusClass(status?: string): string {
         status === "bKash" ||
         status === "Nagad"
     ) {
-        return "border-[#b7791f]/30 bg-[#b7791f]/10 text-[#b7791f]";
+        return {
+            badge: "border-[#b7791f]/25 bg-[#b7791f]/8 text-[#b7791f]",
+            dot: "bg-[#b7791f]",
+        };
     }
 
-    return "border-[#d9d1c4] bg-[#ebe6dd] text-[#6b645b]";
+    return {
+        badge: "border-[#d9d1c4] bg-[#ebe6dd] text-[#6b645b]",
+        dot: "bg-[#6b645b]",
+    };
 }
 
 function hasDue(row: DashboardDocumentRow): boolean {
     return Boolean(row.due && row.due !== "৳0");
 }
+
+const filteredSales = computed(() => {
+    if (salesFilter.value === "due") {
+        return props.recentSales.filter((s) => hasDue(s));
+    }
+
+    if (salesFilter.value === "paid") {
+        return props.recentSales.filter((s) => !hasDue(s));
+    }
+
+    return props.recentSales;
+});
 </script>
 
 <template>
@@ -130,13 +178,17 @@ function hasDue(row: DashboardDocumentRow): boolean {
         <div class="flex flex-wrap items-center justify-between gap-3">
             <div class="flex items-center gap-3">
                 <h1
-                    class="text-[18px] leading-[1.3] font-semibold text-[#1C1916]"
+                    class="text-[18px] leading-[1.3] font-semibold tracking-tight text-[#1C1916]"
                 >
                     {{ isSalesShop ? "Counter Overview" : "Owner Overview" }}
                 </h1>
                 <span
-                    class="rounded-[4px] border border-[#d9d1c4] bg-[#fffcf8] px-2 py-0.5 text-[11px] font-medium text-[#6b645b]"
+                    class="inline-flex items-center gap-1.5 rounded-[4px] border border-[#d9d1c4] bg-[#fffcf8] px-2.5 py-0.5 text-[11px] font-medium text-[#6b645b] shadow-xs"
                 >
+                    <span
+                        class="size-1.5 rounded-full"
+                        :class="isSalesShop ? 'bg-[#b7791f]' : 'bg-[#b44422]'"
+                    />
                     {{ viewer.role }} · {{ viewer.warehouse }}
                 </span>
             </div>
@@ -148,7 +200,7 @@ function hasDue(row: DashboardDocumentRow): boolean {
                 <select
                     id="overview-warehouse"
                     v-model="warehouse"
-                    class="h-8 rounded-[4px] border border-[#d9d1c4] bg-[#fffcf8] px-2 text-[12px] font-medium text-[#1c1916] focus-visible:border-[#b8ad9c] focus-visible:ring-[2px] focus-visible:ring-[#1f6b5a] focus-visible:outline-none"
+                    class="h-8 rounded-[4px] border border-[#d9d1c4] bg-[#fffcf8] px-2.5 text-[12px] font-medium text-[#1c1916] shadow-xs transition-colors hover:border-[#b8ad9c] focus-visible:border-[#b8ad9c] focus-visible:ring-[2px] focus-visible:ring-[#1f6b5a] focus-visible:outline-none"
                 >
                     <option
                         v-for="option in filters.warehouses"
@@ -163,7 +215,7 @@ function hasDue(row: DashboardDocumentRow): boolean {
                 <select
                     id="overview-period"
                     v-model="period"
-                    class="h-8 rounded-[4px] border border-[#d9d1c4] bg-[#fffcf8] px-2 text-[12px] font-medium text-[#1c1916] focus-visible:border-[#b8ad9c] focus-visible:ring-[2px] focus-visible:ring-[#1f6b5a] focus-visible:outline-none"
+                    class="h-8 rounded-[4px] border border-[#d9d1c4] bg-[#fffcf8] px-2.5 text-[12px] font-medium text-[#1c1916] shadow-xs transition-colors hover:border-[#b8ad9c] focus-visible:border-[#b8ad9c] focus-visible:ring-[2px] focus-visible:ring-[#1f6b5a] focus-visible:outline-none"
                 >
                     <option
                         v-for="option in filters.periods"
@@ -177,14 +229,15 @@ function hasDue(row: DashboardDocumentRow): boolean {
                 <Link
                     v-if="canUsePos"
                     :href="pos()"
-                    class="group inline-flex h-8 items-center gap-1.5 rounded-[4px] bg-[#b44422] px-3 text-[13px] font-medium text-[#fffcf8] hover:bg-[#97381c] focus-visible:ring-[2px] focus-visible:ring-[#1f6b5a] focus-visible:outline-none"
-                    title="Press F1 to open POS"
+                    class="group inline-flex h-8 items-center gap-2 rounded-[4px] bg-[#b44422] px-3 text-[13px] font-medium text-[#fffcf8] shadow-xs transition-all hover:bg-[#97381c] hover:shadow-sm focus-visible:ring-[2px] focus-visible:ring-[#1f6b5a] focus-visible:outline-none"
+                    title="Press F1 from anywhere to open POS"
                 >
                     <span>Open POS</span>
                     <kbd
-                        class="rounded border border-white/30 bg-black/10 px-1 py-0.2 text-[10px] text-white/90 group-hover:bg-black/20"
-                        >F1</kbd
+                        class="rounded border border-white/30 bg-black/15 px-1 py-0.2 text-[10px] font-mono text-white/90 transition-colors group-hover:bg-black/25"
                     >
+                        F1
+                    </kbd>
                 </Link>
             </div>
         </div>
@@ -192,93 +245,174 @@ function hasDue(row: DashboardDocumentRow): boolean {
         <!-- Sales Shop Quick Navigation Toolbar -->
         <div
             v-if="isSalesShop"
-            class="flex items-center gap-2 overflow-x-auto rounded-[6px] border border-[#d9d1c4] bg-[#fffcf8] px-3 py-2 text-[12px]"
+            class="flex items-center gap-2 overflow-x-auto rounded-[6px] border border-[#d9d1c4] bg-[#fffcf8] px-3.5 py-2 text-[12px] shadow-xs"
         >
             <span class="font-medium text-[#6b645b]"
                 >Quick Counter Actions:</span
             >
             <Link
                 :href="pos()"
-                class="inline-flex items-center rounded border border-[#b44422]/30 bg-[#f6e4dc] px-2.5 py-1 font-medium text-[#8f3419] hover:bg-[#b44422] hover:text-white"
+                class="inline-flex items-center gap-1 rounded border border-[#b44422]/40 bg-[#f6e4dc] px-2.5 py-1 font-medium text-[#8f3419] transition-all hover:bg-[#b44422] hover:text-white"
             >
-                + New Walk-in Sale
+                <span>+</span> New Walk-in Sale
             </Link>
             <Link
                 :href="inventory()"
-                class="inline-flex items-center rounded border border-[#d9d1c4] px-2.5 py-1 text-[#1c1916] hover:bg-[#f7f1e8]"
+                class="inline-flex items-center rounded border border-[#d9d1c4] px-2.5 py-1 text-[#1c1916] transition-colors hover:bg-[#f7f1e8]"
             >
                 Check Showroom Stock
             </Link>
             <Link
                 :href="customers()"
-                class="inline-flex items-center rounded border border-[#d9d1c4] px-2.5 py-1 text-[#1c1916] hover:bg-[#f7f1e8]"
+                class="inline-flex items-center rounded border border-[#d9d1c4] px-2.5 py-1 text-[#1c1916] transition-colors hover:bg-[#f7f1e8]"
             >
                 Customer Due & Khata
             </Link>
             <Link
                 :href="payments()"
-                class="inline-flex items-center rounded border border-[#d9d1c4] px-2.5 py-1 text-[#1c1916] hover:bg-[#f7f1e8]"
+                class="inline-flex items-center rounded border border-[#d9d1c4] px-2.5 py-1 text-[#1c1916] transition-colors hover:bg-[#f7f1e8]"
             >
                 Collect Due Payment
             </Link>
         </div>
 
-        <!-- Today 40px Metrics Strip -->
+        <!-- Today 40px Metrics Strip with Cashflow Micro-Bar -->
         <div
-            class="flex h-10 items-center divide-x divide-[#d9d1c4] overflow-x-auto rounded-[6px] border border-[#d9d1c4] bg-[#fffcf8] text-[13px]"
+            class="flex h-10 items-center divide-x divide-[#d9d1c4] overflow-x-auto rounded-[6px] border border-[#d9d1c4] bg-[#fffcf8] text-[13px] shadow-xs"
         >
             <p
                 v-for="metric in todayMetrics"
                 :key="metric.label"
-                class="flex h-full shrink-0 items-center gap-2 px-4"
+                class="flex h-full shrink-0 items-center gap-2 px-3.5"
             >
                 <span class="text-[12px] text-[#6b645b]">{{
                     metric.label
                 }}</span>
-                <span class="font-medium tabular-nums">{{ metric.value }}</span>
+                <span class="font-semibold tabular-nums text-[#1c1916]">{{
+                    metric.value
+                }}</span>
             </p>
+
+            <!-- Executive Cashflow Ratio Micro-Bar -->
+            <div
+                class="ml-auto hidden h-full shrink-0 items-center gap-3 px-4 sm:flex"
+            >
+                <div class="flex flex-col gap-1 min-w-[130px]">
+                    <div
+                        class="flex items-center justify-between text-[10px] leading-none"
+                    >
+                        <span class="font-semibold text-[#2f7d4a]"
+                            >{{ collectionPercent }}% Paid</span
+                        >
+                        <span class="font-semibold text-[#b7791f]"
+                            >{{ duePercent }}% Due</span
+                        >
+                    </div>
+                    <div
+                        class="flex h-1.5 w-full overflow-hidden rounded-full bg-[#ebe6dd]"
+                    >
+                        <div
+                            class="h-full bg-[#2f7d4a] transition-all duration-300"
+                            :style="{ width: `${collectionPercent}%` }"
+                            :title="`৳${today.collected} Collected`"
+                        />
+                        <div
+                            class="h-full bg-[#b7791f] transition-all duration-300"
+                            :style="{ width: `${duePercent}%` }"
+                            :title="`৳${today.due_opened} Due Opened`"
+                        />
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Work Queues: 2 Column Grid -->
         <div class="grid items-start gap-4 lg:grid-cols-2">
             <!-- Left Panel: Attention Queues -->
-            <section class="rounded-[6px] border border-[#d9d1c4] bg-[#fffcf8]">
+            <section
+                class="rounded-[6px] border border-[#d9d1c4] bg-[#fffcf8] shadow-xs"
+            >
                 <header
-                    class="flex h-9 items-center border-b border-[#d9d1c4] bg-[#ebe6dd] px-3 text-[11px] font-semibold tracking-wide uppercase"
+                    class="flex h-9 items-center justify-between border-b border-[#d9d1c4] bg-[#ebe6dd] px-3.5 text-[11px] font-semibold tracking-wide uppercase text-[#1c1916]"
                 >
-                    {{ isSalesShop ? "Counter Attention" : "Attention" }}
+                    <span>{{
+                        isSalesShop ? "Counter Attention" : "Attention"
+                    }}</span>
+                    <span
+                        class="text-[10px] font-normal text-[#6b645b] lowercase"
+                        >Actionable queues</span
+                    >
                 </header>
 
                 <div
-                    v-for="item in attention"
+                    v-for="(item, idx) in attention"
                     :key="item.label"
                     class="border-b border-[#d9d1c4] last:border-b-0"
                 >
-                    <Link
-                        :href="item.href"
-                        class="flex h-9 items-center justify-between px-3 text-[13px] hover:bg-[#f7f1e8]"
+                    <div
+                        class="flex h-9 items-center justify-between px-3.5 text-[13px] hover:bg-[#f7f1e8]"
                     >
-                        <span>{{ item.label }}</span>
-                        <span
-                            class="inline-flex min-w-6 justify-center rounded-[4px] border px-1.5 text-[12px] font-medium tabular-nums"
-                            :class="toneClass(item.tone)"
+                        <button
+                            type="button"
+                            @click="toggleAttention(idx)"
+                            class="flex flex-1 items-center gap-2 text-left font-medium hover:text-[#b44422]"
                         >
-                            {{ item.count }}
-                        </span>
-                    </Link>
-                    <ul>
+                            <span
+                                class="inline-block text-[10px] text-[#6b645b] transition-transform duration-150"
+                                :class="
+                                    expandedAttention[idx] ? 'rotate-90' : ''
+                                "
+                                >▶</span
+                            >
+                            <span>{{ item.label }}</span>
+                        </button>
+
+                        <Link
+                            :href="item.href"
+                            class="inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-medium tabular-nums transition-colors hover:brightness-95"
+                            :class="toneBadge(item.tone).badge"
+                        >
+                            <span
+                                class="size-1.5 rounded-full"
+                                :class="toneBadge(item.tone).dot"
+                            />
+                            <span>{{ item.count }}</span>
+                        </Link>
+                    </div>
+
+                    <ul v-show="expandedAttention[idx]">
                         <li
                             v-for="line in item.items"
                             :key="line.title + line.meta"
-                            class="flex h-9 items-center justify-between gap-3 border-t border-[#d9d1c4] px-3 text-[13px]"
+                            class="flex h-9 items-center justify-between gap-3 border-t border-[#d9d1c4] bg-[#fffcf8] px-3.5 text-[13px] transition-colors hover:bg-[#faf6f0]"
                         >
-                            <span class="min-w-0 truncate font-medium">{{
-                                line.title
-                            }}</span>
                             <span
-                                class="shrink-0 text-[12px] text-[#6b645b] tabular-nums"
+                                class="min-w-0 truncate font-medium text-[#1c1916]"
+                                >{{ line.title }}</span
                             >
-                                {{ line.meta }}
+
+                            <span
+                                class="inline-flex shrink-0 items-center gap-1.5 text-[12px] text-[#6b645b] tabular-nums"
+                            >
+                                <span
+                                    v-if="line.meta.includes('BOX')"
+                                    class="flex gap-0.5"
+                                    title="Stock urgency indicator"
+                                >
+                                    <span
+                                        class="h-2 w-1 rounded-xs bg-[#b42318]"
+                                    />
+                                    <span
+                                        class="h-2 w-1 rounded-xs bg-[#b42318]"
+                                    />
+                                    <span
+                                        class="h-2 w-1 rounded-xs bg-[#d9d1c4]"
+                                    />
+                                    <span
+                                        class="h-2 w-1 rounded-xs bg-[#d9d1c4]"
+                                    />
+                                </span>
+                                <span>{{ line.meta }}</span>
                             </span>
                         </li>
                     </ul>
@@ -286,15 +420,17 @@ function hasDue(row: DashboardDocumentRow): boolean {
             </section>
 
             <!-- Right Panel: Recent Documents / Counter Activity -->
-            <section class="rounded-[6px] border border-[#d9d1c4] bg-[#fffcf8]">
+            <section
+                class="rounded-[6px] border border-[#d9d1c4] bg-[#fffcf8] shadow-xs"
+            >
                 <header
-                    class="flex h-9 items-center justify-between border-b border-[#d9d1c4] bg-[#ebe6dd] px-3 text-[11px] font-semibold tracking-wide uppercase"
+                    class="flex h-9 items-center justify-between border-b border-[#d9d1c4] bg-[#ebe6dd] px-3.5 text-[11px] font-semibold tracking-wide uppercase text-[#1c1916]"
                 >
                     <span>{{
                         isSalesShop ? "Counter Activity" : "Recent documents"
                     }}</span>
                     <span
-                        class="flex gap-2 text-[11px] font-medium tracking-normal normal-case"
+                        class="flex gap-2.5 text-[11px] font-medium tracking-normal normal-case"
                     >
                         <Link
                             :href="sales()"
@@ -319,35 +455,95 @@ function hasDue(row: DashboardDocumentRow): boolean {
                     </span>
                 </header>
 
-                <!-- Sales Queue -->
-                <p
-                    class="flex h-8 items-center bg-[#f7f1e8] px-3 text-[11px] font-semibold tracking-wide text-[#6b645b] uppercase"
+                <!-- Sales Queue Header with Micro-Filter Pills -->
+                <div
+                    class="flex h-8 items-center justify-between bg-[#f7f1e8] px-3.5 text-[11px] font-semibold text-[#6b645b]"
                 >
-                    {{
+                    <span class="tracking-wide uppercase">{{
                         isSalesShop ? "Recent counter invoices" : "Last 8 sales"
-                    }}
-                </p>
+                    }}</span>
+
+                    <!-- Micro-filters for fast scanning -->
+                    <div class="flex items-center gap-1 normal-case">
+                        <button
+                            type="button"
+                            @click="salesFilter = 'all'"
+                            class="rounded px-1.5 py-0.5 text-[10px] font-medium transition-colors"
+                            :class="
+                                salesFilter === 'all'
+                                    ? 'bg-[#1c1916] text-[#fffcf8]'
+                                    : 'text-[#6b645b] hover:text-[#1c1916]'
+                            "
+                        >
+                            All
+                        </button>
+                        <button
+                            type="button"
+                            @click="salesFilter = 'due'"
+                            class="rounded px-1.5 py-0.5 text-[10px] font-medium transition-colors"
+                            :class="
+                                salesFilter === 'due'
+                                    ? 'bg-[#b7791f] text-white'
+                                    : 'text-[#6b645b] hover:text-[#b7791f]'
+                            "
+                        >
+                            Has Due
+                        </button>
+                        <button
+                            type="button"
+                            @click="salesFilter = 'paid'"
+                            class="rounded px-1.5 py-0.5 text-[10px] font-medium transition-colors"
+                            :class="
+                                salesFilter === 'paid'
+                                    ? 'bg-[#2f7d4a] text-white'
+                                    : 'text-[#6b645b] hover:text-[#2f7d4a]'
+                            "
+                        >
+                            Paid
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Sales List -->
                 <ul>
-                    <li v-for="sale in recentSales" :key="sale.number">
+                    <li v-for="sale in filteredSales" :key="sale.number">
                         <Link
                             :href="sale.href"
-                            class="flex h-9 items-center justify-between gap-3 border-t border-[#d9d1c4] px-3 text-[13px] hover:bg-[#f7f1e8]"
+                            class="group flex h-9 items-center justify-between gap-3 border-t border-[#d9d1c4] px-3.5 text-[13px] transition-colors hover:bg-[#faf6f0]"
                         >
                             <span class="min-w-0 truncate">
-                                <span class="font-medium">{{
+                                <span class="font-medium text-[#1c1916]">{{
                                     sale.number
                                 }}</span>
                                 <span class="text-[#6b645b]">
                                     · {{ sale.party }}
                                 </span>
                             </span>
-                            <span class="shrink-0 text-right tabular-nums">
-                                {{ sale.amount }}
+
+                            <span
+                                class="flex shrink-0 items-center gap-2 text-right tabular-nums"
+                            >
+                                <span class="font-medium">{{
+                                    sale.amount
+                                }}</span>
+
                                 <span
                                     v-if="hasDue(sale)"
-                                    class="ml-2 text-[12px] text-[#b7791f]"
+                                    class="inline-flex items-center gap-1 rounded-[4px] border border-[#b7791f]/30 bg-[#b7791f]/10 px-1.5 py-0.5 text-[11px] font-medium text-[#b7791f]"
                                 >
-                                    Due {{ sale.due }}
+                                    <span
+                                        class="size-1.5 rounded-full bg-[#b7791f]"
+                                    />
+                                    <span>Due {{ sale.due }}</span>
+                                </span>
+                                <span
+                                    v-else
+                                    class="inline-flex items-center gap-1 rounded-[4px] border border-[#2f7d4a]/20 bg-[#2f7d4a]/8 px-1.5 py-0.5 text-[11px] font-medium text-[#2f7d4a]"
+                                >
+                                    <span
+                                        class="size-1.5 rounded-full bg-[#2f7d4a]"
+                                    />
+                                    <span>Paid</span>
                                 </span>
                             </span>
                         </Link>
@@ -363,7 +559,7 @@ function hasDue(row: DashboardDocumentRow): boolean {
                     "
                 >
                     <p
-                        class="flex h-8 items-center border-t border-[#d9d1c4] bg-[#f7f1e8] px-3 text-[11px] font-semibold tracking-wide text-[#6b645b] uppercase"
+                        class="flex h-8 items-center border-t border-[#d9d1c4] bg-[#f7f1e8] px-3.5 text-[11px] font-semibold tracking-wide uppercase text-[#6b645b]"
                     >
                         Last 8 purchases
                     </p>
@@ -374,10 +570,10 @@ function hasDue(row: DashboardDocumentRow): boolean {
                         >
                             <Link
                                 :href="purchase.href"
-                                class="flex h-9 items-center justify-between gap-3 border-t border-[#d9d1c4] px-3 text-[13px] hover:bg-[#f7f1e8]"
+                                class="flex h-9 items-center justify-between gap-3 border-t border-[#d9d1c4] px-3.5 text-[13px] transition-colors hover:bg-[#faf6f0]"
                             >
                                 <span class="min-w-0 truncate">
-                                    <span class="font-medium">{{
+                                    <span class="font-medium text-[#1c1916]">{{
                                         purchase.number
                                     }}</span>
                                     <span class="text-[#6b645b]">
@@ -387,13 +583,23 @@ function hasDue(row: DashboardDocumentRow): boolean {
                                 <span
                                     class="flex shrink-0 items-center gap-2 text-right tabular-nums"
                                 >
-                                    {{ purchase.amount }}
+                                    <span class="font-medium">{{
+                                        purchase.amount
+                                    }}</span>
                                     <span
                                         v-if="purchase.status"
-                                        class="rounded-[4px] border px-1.5 text-[11px] font-medium capitalize"
-                                        :class="statusClass(purchase.status)"
+                                        class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium capitalize"
+                                        :class="
+                                            methodBadge(purchase.status).badge
+                                        "
                                     >
-                                        {{ purchase.status }}
+                                        <span
+                                            class="size-1.5 rounded-full"
+                                            :class="
+                                                methodBadge(purchase.status).dot
+                                            "
+                                        />
+                                        <span>{{ purchase.status }}</span>
                                     </span>
                                 </span>
                             </Link>
@@ -410,7 +616,7 @@ function hasDue(row: DashboardDocumentRow): boolean {
                     "
                 >
                     <p
-                        class="flex h-8 items-center border-t border-[#d9d1c4] bg-[#f7f1e8] px-3 text-[11px] font-semibold tracking-wide text-[#6b645b] uppercase"
+                        class="flex h-8 items-center border-t border-[#d9d1c4] bg-[#f7f1e8] px-3.5 text-[11px] font-semibold tracking-wide uppercase text-[#6b645b]"
                     >
                         Last 8 collections & payments
                     </p>
@@ -418,10 +624,10 @@ function hasDue(row: DashboardDocumentRow): boolean {
                         <li v-for="rct in recentCollections" :key="rct.number">
                             <Link
                                 :href="rct.href"
-                                class="flex h-9 items-center justify-between gap-3 border-t border-[#d9d1c4] px-3 text-[13px] hover:bg-[#f7f1e8]"
+                                class="flex h-9 items-center justify-between gap-3 border-t border-[#d9d1c4] px-3.5 text-[13px] transition-colors hover:bg-[#faf6f0]"
                             >
                                 <span class="min-w-0 truncate">
-                                    <span class="font-medium">{{
+                                    <span class="font-medium text-[#1c1916]">{{
                                         rct.number
                                     }}</span>
                                     <span class="text-[#6b645b]">
@@ -431,13 +637,20 @@ function hasDue(row: DashboardDocumentRow): boolean {
                                 <span
                                     class="flex shrink-0 items-center gap-2 text-right tabular-nums"
                                 >
-                                    {{ rct.amount }}
+                                    <span
+                                        class="font-semibold text-[#2f7d4a]"
+                                        >{{ rct.amount }}</span
+                                    >
                                     <span
                                         v-if="rct.status"
-                                        class="rounded-[4px] border px-1.5 text-[11px] font-medium capitalize"
-                                        :class="statusClass(rct.status)"
+                                        class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium"
+                                        :class="methodBadge(rct.status).badge"
                                     >
-                                        {{ rct.status }}
+                                        <span
+                                            class="size-1.5 rounded-full"
+                                            :class="methodBadge(rct.status).dot"
+                                        />
+                                        <span>{{ rct.status }}</span>
                                     </span>
                                 </span>
                             </Link>
@@ -449,9 +662,12 @@ function hasDue(row: DashboardDocumentRow): boolean {
 
         <!-- Bottom Tables: Top Products & Highest Due Customers -->
         <div class="grid gap-4 lg:grid-cols-2">
-            <section class="rounded-[6px] border border-[#d9d1c4] bg-[#fffcf8]">
+            <!-- Top Products -->
+            <section
+                class="rounded-[6px] border border-[#d9d1c4] bg-[#fffcf8] shadow-xs"
+            >
                 <header
-                    class="grid h-9 grid-cols-[minmax(0,1fr)_7rem_6rem] items-center gap-3 border-b border-[#d9d1c4] bg-[#ebe6dd] px-3 text-[11px] font-semibold tracking-wide uppercase"
+                    class="grid h-9 grid-cols-[minmax(0,1fr)_7rem_6rem] items-center gap-3 border-b border-[#d9d1c4] bg-[#ebe6dd] px-3.5 text-[11px] font-semibold tracking-wide uppercase text-[#1c1916]"
                 >
                     <span>{{
                         isSalesShop
@@ -465,22 +681,27 @@ function hasDue(row: DashboardDocumentRow): boolean {
                     <li
                         v-for="product in topProducts"
                         :key="product.name"
-                        class="grid h-9 grid-cols-[minmax(0,1fr)_7rem_6rem] items-center gap-3 border-b border-[#d9d1c4] px-3 text-[13px] last:border-b-0"
+                        class="grid h-9 grid-cols-[minmax(0,1fr)_7rem_6rem] items-center gap-3 border-b border-[#d9d1c4] px-3.5 text-[13px] last:border-b-0 transition-colors hover:bg-[#faf6f0]"
                     >
-                        <span class="min-w-0 truncate">{{ product.name }}</span>
+                        <span class="min-w-0 truncate font-medium">{{
+                            product.name
+                        }}</span>
                         <span class="text-right text-[#6b645b] tabular-nums">{{
                             product.sqft
                         }}</span>
-                        <span class="text-right font-medium tabular-nums">{{
+                        <span class="text-right font-semibold tabular-nums">{{
                             product.amount
                         }}</span>
                     </li>
                 </ul>
             </section>
 
-            <section class="rounded-[6px] border border-[#d9d1c4] bg-[#fffcf8]">
+            <!-- Highest Due Customers -->
+            <section
+                class="rounded-[6px] border border-[#d9d1c4] bg-[#fffcf8] shadow-xs"
+            >
                 <header
-                    class="grid h-9 grid-cols-[minmax(0,1fr)_7rem] items-center gap-3 border-b border-[#d9d1c4] bg-[#ebe6dd] px-3 text-[11px] font-semibold tracking-wide uppercase"
+                    class="grid h-9 grid-cols-[minmax(0,1fr)_7rem] items-center gap-3 border-b border-[#d9d1c4] bg-[#ebe6dd] px-3.5 text-[11px] font-semibold tracking-wide uppercase text-[#1c1916]"
                 >
                     <span>{{
                         isSalesShop ? "Counter customer due" : "Highest due"
@@ -491,13 +712,23 @@ function hasDue(row: DashboardDocumentRow): boolean {
                     <li
                         v-for="customer in highestDue"
                         :key="customer.name"
-                        class="grid h-9 grid-cols-[minmax(0,1fr)_7rem] items-center gap-3 border-b border-[#d9d1c4] px-3 text-[13px] last:border-b-0"
+                        class="group grid h-9 grid-cols-[minmax(0,1fr)_7rem] items-center gap-3 border-b border-[#d9d1c4] px-3.5 text-[13px] last:border-b-0 transition-colors hover:bg-[#faf6f0]"
                     >
-                        <span class="min-w-0 truncate">{{
-                            customer.name
-                        }}</span>
+                        <div
+                            class="flex items-center justify-between min-w-0 pr-2"
+                        >
+                            <span class="truncate font-medium text-[#1c1916]">{{
+                                customer.name
+                            }}</span>
+                            <Link
+                                :href="customers()"
+                                class="text-[11px] font-medium text-[#8f3419] opacity-0 transition-opacity group-hover:opacity-100 hover:underline"
+                            >
+                                Ledger →
+                            </Link>
+                        </div>
                         <span
-                            class="text-right font-medium text-[#b42318] tabular-nums"
+                            class="text-right font-semibold tabular-nums text-[#b42318]"
                             >{{ customer.balance }}</span
                         >
                     </li>
