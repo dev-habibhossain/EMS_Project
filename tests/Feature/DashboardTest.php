@@ -31,7 +31,8 @@ test('owner overview renders the kiln dashboard queues', function () {
                 ->has('collected')
                 ->has('due_opened')
                 ->has('purchases')
-                ->has('invoices'))
+                ->has('invoices')
+                ->has('avg_ticket'))
             ->has('attention', 3)
             ->has('attention.0.items')
             ->has('recentSales', 8)
@@ -70,4 +71,33 @@ test('overview shows the assigned role name from the database', function () {
         ->assertInertia(fn (Assert $page) => $page
             ->component('Dashboard')
             ->where('viewer.role', 'Manager'));
+});
+
+test('sales shop overview renders counter queues and hides purchases', function () {
+    $role = Role::factory()->create([
+        'name' => 'Sales shop',
+        'slug' => 'sales_shop',
+    ]);
+    $user = User::factory()->create(['role_id' => $role->id]);
+
+    $this->actingAs($user)
+        ->get(route('dashboard'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('Dashboard')
+            ->where('viewer.role', 'Sales shop')
+            ->where('viewer.role_slug', 'sales_shop')
+            ->has('today', fn (Assert $today) => $today
+                ->has('sales')
+                ->has('collected')
+                ->has('due_opened')
+                ->has('invoices')
+                ->has('avg_ticket')
+                ->missing('purchases'))
+            ->has('attention', 3)
+            ->has('recentSales', 8)
+            ->has('recentCollections', 8)
+            ->missing('recentPurchases')
+            ->has('topProducts')
+            ->has('highestDue'));
 });
