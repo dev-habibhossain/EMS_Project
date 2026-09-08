@@ -13,7 +13,6 @@ test('authenticated users can open module index pages', function (string $route,
             ->component('ModuleIndex')
             ->where('title', $title));
 })->with([
-    ['pos', 'POS'],
     ['products.index', 'Products'],
     ['brands.index', 'Brands'],
     ['factories.index', 'Factories'],

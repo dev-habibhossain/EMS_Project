@@ -36,6 +36,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', DashboardController::class)->name('dashboard');
 
     Route::get('pos', [PosController::class, 'index'])->name('pos');
+    Route::post('pos/checkout', [PosController::class, 'checkout'])->name('pos.checkout');
 
     Route::get('products', [ProductController::class, 'index'])->name('products.index');
     Route::get('brands', [BrandController::class, 'index'])->name('brands.index');
