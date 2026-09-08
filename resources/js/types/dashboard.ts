@@ -1,4 +1,4 @@
-export type DashboardTone = 'warning' | 'info' | 'danger';
+export type DashboardTone = "warning" | "info" | "danger";
 
 export type DashboardAttentionLine = {
     title: string;
@@ -36,6 +36,7 @@ export type DashboardDueRow = {
 export type DashboardPageProps = {
     viewer: {
         role: string;
+        role_slug?: string;
         warehouse: string;
     };
     filters: {
@@ -48,12 +49,14 @@ export type DashboardPageProps = {
         sales: string;
         collected: string;
         due_opened: string;
-        purchases: string;
+        purchases?: string;
         invoices: number;
+        avg_ticket?: string;
     };
     attention: DashboardAttentionItem[];
     recentSales: DashboardDocumentRow[];
-    recentPurchases: DashboardDocumentRow[];
+    recentPurchases?: DashboardDocumentRow[];
+    recentCollections?: DashboardDocumentRow[];
     topProducts: DashboardProductRow[];
     highestDue: DashboardDueRow[];
 };
