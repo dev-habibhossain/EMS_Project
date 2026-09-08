@@ -3,10 +3,19 @@
 use App\Models\Brand;
 use App\Models\Factory;
 use App\Models\Product;
+use App\Models\QualityGrade;
 use App\Models\Role;
 use App\Models\TileSize;
+use App\Models\Unit;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
+
+beforeEach(function (): void {
+    Unit::firstOrCreate(['code' => 'BOX'], ['name' => 'Box', 'name_bn' => 'বাক্স', 'is_system' => true]);
+    Unit::firstOrCreate(['code' => 'PCS'], ['name' => 'Piece', 'name_bn' => 'পিস', 'is_system' => true]);
+    Unit::firstOrCreate(['code' => 'SQFT'], ['name' => 'Square foot', 'name_bn' => 'বর্গফুট', 'is_system' => true]);
+    QualityGrade::firstOrCreate(['code' => 'A'], ['id' => 1, 'name' => 'Grade A', 'is_sellable' => true, 'sort_order' => 1]);
+});
 
 test('guests cannot view products page', function (): void {
     $this->get(route('products.index'))
@@ -177,4 +186,116 @@ test('per_page parameter adjusts page size', function (): void {
             ->component('Products/Index')
             ->where('products.per_page', 25)
         );
+});
+
+test('admin can create a new product', function (): void {
+    $adminRole = Role::firstOrCreate(['slug' => 'admin'], ['name' => 'Admin']);
+    $admin = User::factory()->create(['role_id' => $adminRole->id]);
+
+    $brand = Brand::factory()->create();
+    $size = TileSize::factory()->create();
+
+    $payload = [
+        'sku' => 'NEW-TILE-999',
+        'name' => 'Modern Beige Porcelain',
+        'name_bn' => 'মডার্ন বেইজ টাইলস',
+        'brand_id' => $brand->id,
+        'tile_size_id' => $size->id,
+        'pieces_per_box' => 4,
+        'sqft_per_piece' => '2.690000',
+        'box_price' => 1350.00,
+        'barcode' => '778899001122',
+        'requires_batch' => true,
+        'requires_shade' => true,
+        'is_active' => true,
+    ];
+
+    $this->actingAs($admin)
+        ->post(route('products.store'), $payload)
+        ->assertSessionHasNoErrors()
+        ->assertRedirect();
+
+    $this->assertDatabaseHas('products', [
+        'sku' => 'NEW-TILE-999',
+        'name' => 'Modern Beige Porcelain',
+    ]);
+
+    $this->assertDatabaseHas('product_prices', [
+        'unit_code' => 'BOX',
+        'price' => '1350.00',
+    ]);
+});
+
+test('non-admin user cannot create a product', function (): void {
+    $salesRole = Role::firstOrCreate(['slug' => 'sales_shop'], ['name' => 'Sales shop']);
+    $user = User::factory()->create(['role_id' => $salesRole->id]);
+
+    $this->actingAs($user)
+        ->post(route('products.store'), [
+            'sku' => 'FORBIDDEN-01',
+            'name' => 'Should Fail',
+            'pieces_per_box' => 4,
+            'sqft_per_piece' => '2.69',
+            'box_price' => 1000,
+        ])
+        ->assertForbidden();
+});
+
+test('admin can update an existing product and price', function (): void {
+    $adminRole = Role::firstOrCreate(['slug' => 'admin'], ['name' => 'Admin']);
+    $admin = User::factory()->create(['role_id' => $adminRole->id]);
+
+    $product = Product::create([
+        'sku' => 'ORIG-100',
+        'name' => 'Original Name',
+        'pieces_per_box' => 4,
+        'sqft_per_piece' => '2.690000',
+        'is_active' => true,
+    ]);
+
+    $this->actingAs($admin)
+        ->put(route('products.update', $product), [
+            'sku' => 'ORIG-100-UPDATED',
+            'name' => 'Updated Product Name',
+            'pieces_per_box' => 6,
+            'sqft_per_piece' => '2.690000',
+            'box_price' => 1500.00,
+            'is_active' => true,
+        ])
+        ->assertSessionHasNoErrors()
+        ->assertRedirect();
+
+    $this->assertDatabaseHas('products', [
+        'id' => $product->id,
+        'sku' => 'ORIG-100-UPDATED',
+        'name' => 'Updated Product Name',
+        'pieces_per_box' => 6,
+    ]);
+
+    $this->assertDatabaseHas('product_prices', [
+        'product_id' => $product->id,
+        'unit_code' => 'BOX',
+        'price' => '1500.00',
+    ]);
+});
+
+test('admin can delete a product without stock history', function (): void {
+    $adminRole = Role::firstOrCreate(['slug' => 'admin'], ['name' => 'Admin']);
+    $admin = User::factory()->create(['role_id' => $adminRole->id]);
+
+    $product = Product::create([
+        'sku' => 'TO-DELETE-1',
+        'name' => 'Temporary Product',
+        'pieces_per_box' => 4,
+        'sqft_per_piece' => '2.690000',
+        'is_active' => true,
+    ]);
+
+    $this->actingAs($admin)
+        ->delete(route('products.destroy', $product))
+        ->assertRedirect();
+
+    $this->assertSoftDeleted('products', [
+        'id' => $product->id,
+    ]);
 });

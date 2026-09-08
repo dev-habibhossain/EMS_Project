@@ -1,8 +1,16 @@
 <script setup lang="ts">
-import { Head, Link, router, setLayoutProps, usePage } from "@inertiajs/vue3";
-import { computed, ref, watch } from "vue";
+import {
+    Head,
+    Link,
+    router,
+    setLayoutProps,
+    useForm,
+    usePage,
+} from "@inertiajs/vue3";
+import { computed, ref } from "vue";
 import {
     Boxes,
+    Calculator,
     Check,
     CheckCircle2,
     ChevronLeft,
@@ -11,12 +19,13 @@ import {
     Eye,
     Filter,
     Layers,
+    Loader2,
     MoreHorizontal,
     Package,
     Plus,
     RotateCcw,
     Search,
-    ShieldAlert,
+    Sparkles,
     Trash2,
     X,
     XCircle,
@@ -73,7 +82,6 @@ const selectedStatus = ref(props.filters.status ?? "all");
 const perPage = ref(
     props.filters.per_page ? Number(props.filters.per_page) : 15,
 );
-const isFilterExpanded = ref(false);
 
 const hasActiveFilters = computed(() => {
     return Boolean(
@@ -216,12 +224,109 @@ const showEditProductModal = ref(false);
 const showViewProductModal = ref(false);
 const activeProduct = ref<ProductListItem | null>(null);
 
+// Forms
+const createForm = useForm({
+    sku: "",
+    name: "",
+    name_bn: "",
+    brand_id: "",
+    factory_id: "",
+    tile_size_id: "",
+    pieces_per_box: 4,
+    sqft_per_piece: 2.69,
+    box_price: 1200,
+    barcode: "",
+    requires_batch: true,
+    requires_shade: true,
+    is_active: true,
+});
+
+const editForm = useForm({
+    sku: "",
+    name: "",
+    name_bn: "",
+    brand_id: "",
+    factory_id: "",
+    tile_size_id: "",
+    pieces_per_box: 4,
+    sqft_per_piece: 2.69,
+    box_price: 1200,
+    barcode: "",
+    requires_batch: true,
+    requires_shade: true,
+    is_active: true,
+});
+
+const onTileSizeSelect = (form: typeof createForm | typeof editForm) => {
+    if (!form.tile_size_id) return;
+    const found = props.tileSizes.find(
+        (s) => String(s.id) === String(form.tile_size_id),
+    );
+    if (found && found.default_sqft_per_piece) {
+        form.sqft_per_piece = Number(found.default_sqft_per_piece);
+    }
+};
+
+const generateSku = (form: typeof createForm | typeof editForm) => {
+    const brand = props.brands.find(
+        (b) => String(b.id) === String(form.brand_id),
+    );
+    const size = props.tileSizes.find(
+        (s) => String(s.id) === String(form.tile_size_id),
+    );
+    const bCode = brand
+        ? brand.name
+              .replace(/[^A-Za-z]/g, "")
+              .slice(0, 3)
+              .toUpperCase()
+        : "TIL";
+    const sCode = size ? size.label.replace("x", "") : "60";
+    const rand = Math.floor(100 + Math.random() * 900);
+    form.sku = `${bCode}-${sCode}-${rand}`;
+};
+
+const getFormCalculations = (form: {
+    pieces_per_box: number;
+    sqft_per_piece: number;
+    box_price: number | string;
+}) => {
+    const pcs = Number(form.pieces_per_box) || 0;
+    const sqftPc = Number(form.sqft_per_piece) || 0;
+    const price = Number(form.box_price) || 0;
+    const boxSqft = pcs * sqftPc;
+    const sqftRate = boxSqft > 0 ? price / boxSqft : 0;
+    return {
+        boxSqft: boxSqft.toFixed(2),
+        sqftRate: sqftRate.toFixed(2),
+    };
+};
+
 const openNewProduct = () => {
+    createForm.reset();
+    createForm.clearErrors();
     showNewProductModal.value = true;
 };
 
 const openEditProduct = (product: ProductListItem) => {
     activeProduct.value = product;
+    editForm.clearErrors();
+    editForm.sku = product.sku;
+    editForm.name = product.name;
+    editForm.name_bn = product.name_bn ?? "";
+    editForm.brand_id = product.brand ? String(product.brand.id) : "";
+    editForm.factory_id = product.tile_factory
+        ? String(product.tile_factory.id)
+        : "";
+    editForm.tile_size_id = product.tile_size
+        ? String(product.tile_size.id)
+        : "";
+    editForm.pieces_per_box = product.pieces_per_box;
+    editForm.sqft_per_piece = Number(product.sqft_per_piece);
+    editForm.box_price = getBoxPrice(product);
+    editForm.barcode = product.barcode ?? "";
+    editForm.requires_batch = product.requires_batch;
+    editForm.requires_shade = product.requires_shade;
+    editForm.is_active = product.is_active;
     showEditProductModal.value = true;
 };
 
@@ -235,6 +340,41 @@ const closeModals = () => {
     showEditProductModal.value = false;
     showViewProductModal.value = false;
     activeProduct.value = null;
+};
+
+const submitCreate = () => {
+    createForm.post("/products", {
+        preserveScroll: true,
+        onSuccess: () => {
+            closeModals();
+            createForm.reset();
+        },
+    });
+};
+
+const submitEdit = () => {
+    if (!activeProduct.value) return;
+    editForm.put(`/products/${activeProduct.value.id}`, {
+        preserveScroll: true,
+        onSuccess: () => {
+            closeModals();
+        },
+    });
+};
+
+const deleteProduct = (item: ProductListItem) => {
+    if (
+        confirm(
+            `Are you sure you want to delete or deactivate "${item.name}" (${item.sku})?`,
+        )
+    ) {
+        router.delete(`/products/${item.id}`, {
+            preserveScroll: true,
+            onSuccess: () => {
+                closeModals();
+            },
+        });
+    }
 };
 </script>
 
@@ -484,10 +624,7 @@ const closeModals = () => {
                         <tbody class="divide-y divide-[#EFECE6]">
                             <!-- Empty State -->
                             <tr v-if="products.data.length === 0">
-                                <td
-                                    :colspan="canManage ? 8 : 8"
-                                    class="py-12 text-center"
-                                >
+                                <td :colspan="8" class="py-12 text-center">
                                     <div
                                         class="mx-auto flex max-w-sm flex-col items-center"
                                     >
@@ -734,7 +871,7 @@ const closeModals = () => {
                                             <Eye class="h-3.5 w-3.5" />
                                         </button>
 
-                                        <!-- Admin Action: Edit Button -->
+                                        <!-- Admin Action: Edit Button (Fixed) -->
                                         <button
                                             v-if="canManage"
                                             type="button"
@@ -744,6 +881,17 @@ const closeModals = () => {
                                         >
                                             <Edit3 class="h-3 w-3" />
                                             <span>Edit</span>
+                                        </button>
+
+                                        <!-- Admin Action: Delete / Deactivate Button -->
+                                        <button
+                                            v-if="canManage"
+                                            type="button"
+                                            @click="deleteProduct(item)"
+                                            class="inline-flex h-7 w-7 items-center justify-center rounded border border-[#D8D2C5] bg-white text-[#8F887C] transition hover:border-rose-300 hover:bg-rose-50 hover:text-rose-600"
+                                            title="Delete or Deactivate product"
+                                        >
+                                            <Trash2 class="h-3.5 w-3.5" />
                                         </button>
                                     </div>
                                 </td>
@@ -833,14 +981,14 @@ const closeModals = () => {
             </div>
         </main>
 
-        <!-- New Product Preview Modal (For Admin) -->
+        <!-- Create New Product Modal (Full CRUD) -->
         <div
             v-if="showNewProductModal"
             class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs"
             @click.self="closeModals"
         >
             <div
-                class="w-full max-w-lg rounded-lg border border-[#E5E0D8] bg-white p-6 shadow-xl"
+                class="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-lg border border-[#E5E0D8] bg-white p-6 shadow-xl"
             >
                 <div
                     class="flex items-center justify-between border-b border-[#E5E0D8] pb-3"
@@ -864,115 +1012,359 @@ const closeModals = () => {
                     </button>
                 </div>
 
-                <div class="mt-4 space-y-3">
+                <form @submit.prevent="submitCreate" class="mt-4 space-y-4">
+                    <!-- Identity Section -->
+                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <!-- SKU -->
+                        <div>
+                            <div class="flex items-center justify-between">
+                                <label
+                                    class="text-[12px] font-semibold text-[#1C1916]"
+                                    >SKU Code *</label
+                                >
+                                <button
+                                    type="button"
+                                    @click="generateSku(createForm)"
+                                    class="inline-flex items-center gap-1 text-[11px] font-medium text-[#B44422] hover:underline"
+                                >
+                                    <Sparkles class="h-3 w-3" />
+                                    <span>Auto-generate</span>
+                                </button>
+                            </div>
+                            <input
+                                v-model="createForm.sku"
+                                type="text"
+                                placeholder="e.g. RAK-60-WHT"
+                                class="mt-1 h-9 w-full rounded border border-[#D8D2C5] bg-[#FAF8F5] px-2.5 font-mono text-[13px] text-[#1C1916] uppercase focus:border-[#B44422] focus:bg-white focus:outline-none"
+                                required
+                            />
+                            <p
+                                v-if="createForm.errors.sku"
+                                class="mt-1 text-[11px] text-rose-600"
+                            >
+                                {{ createForm.errors.sku }}
+                            </p>
+                        </div>
+
+                        <!-- Barcode -->
+                        <div>
+                            <label
+                                class="text-[12px] font-semibold text-[#1C1916]"
+                                >Barcode (EAN/UPC)</label
+                            >
+                            <input
+                                v-model="createForm.barcode"
+                                type="text"
+                                placeholder="Optional barcode..."
+                                class="mt-1 h-9 w-full rounded border border-[#D8D2C5] bg-[#FAF8F5] px-2.5 font-mono text-[13px] text-[#1C1916] focus:border-[#B44422] focus:bg-white focus:outline-none"
+                            />
+                            <p
+                                v-if="createForm.errors.barcode"
+                                class="mt-1 text-[11px] text-rose-600"
+                            >
+                                {{ createForm.errors.barcode }}
+                            </p>
+                        </div>
+
+                        <!-- Name EN -->
+                        <div>
+                            <label
+                                class="text-[12px] font-semibold text-[#1C1916]"
+                                >Product Name (English) *</label
+                            >
+                            <input
+                                v-model="createForm.name"
+                                type="text"
+                                placeholder="e.g. RAK 600 White Glossy"
+                                class="mt-1 h-9 w-full rounded border border-[#D8D2C5] bg-[#FAF8F5] px-2.5 text-[13px] text-[#1C1916] focus:border-[#B44422] focus:bg-white focus:outline-none"
+                                required
+                            />
+                            <p
+                                v-if="createForm.errors.name"
+                                class="mt-1 text-[11px] text-rose-600"
+                            >
+                                {{ createForm.errors.name }}
+                            </p>
+                        </div>
+
+                        <!-- Name BN -->
+                        <div>
+                            <label
+                                class="text-[12px] font-semibold text-[#1C1916]"
+                                >Product Name (বাংলা)</label
+                            >
+                            <input
+                                v-model="createForm.name_bn"
+                                type="text"
+                                placeholder="e.g. আরএকে ৬০০ সাদা"
+                                class="mt-1 h-9 w-full rounded border border-[#D8D2C5] bg-[#FAF8F5] px-2.5 text-[13px] text-[#1C1916] focus:border-[#B44422] focus:bg-white focus:outline-none"
+                            />
+                            <p
+                                v-if="createForm.errors.name_bn"
+                                class="mt-1 text-[11px] text-rose-600"
+                            >
+                                {{ createForm.errors.name_bn }}
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Category / Masters Section -->
                     <div
-                        class="rounded border border-[#F0D5C7] bg-[#FDF8F5] p-3 text-[12.5px] text-[#842C12]"
+                        class="grid grid-cols-1 gap-3 sm:grid-cols-3 pt-2 border-t border-[#EFECE6]"
                     >
-                        <p class="font-medium">Masterdata Form Notice</p>
-                        <p class="mt-0.5 text-[12px] opacity-90">
-                            As requested, this button is active for Admin users.
-                            The full product creation form with automated SKU
-                            generation and factor calculations will be connected
-                            in the masterdata form iteration.
-                        </p>
+                        <!-- Brand -->
+                        <div>
+                            <label
+                                class="text-[12px] font-semibold text-[#1C1916]"
+                                >Brand</label
+                            >
+                            <select
+                                v-model="createForm.brand_id"
+                                class="mt-1 h-9 w-full rounded border border-[#D8D2C5] bg-[#FAF8F5] px-2 text-[12.5px] text-[#1C1916] focus:border-[#B44422] focus:bg-white focus:outline-none"
+                            >
+                                <option value="">Select Brand...</option>
+                                <option
+                                    v-for="b in brands"
+                                    :key="b.id"
+                                    :value="String(b.id)"
+                                >
+                                    {{ b.name }}
+                                </option>
+                            </select>
+                        </div>
+
+                        <!-- Factory -->
+                        <div>
+                            <label
+                                class="text-[12px] font-semibold text-[#1C1916]"
+                                >Factory</label
+                            >
+                            <select
+                                v-model="createForm.factory_id"
+                                class="mt-1 h-9 w-full rounded border border-[#D8D2C5] bg-[#FAF8F5] px-2 text-[12.5px] text-[#1C1916] focus:border-[#B44422] focus:bg-white focus:outline-none"
+                            >
+                                <option value="">Select Factory...</option>
+                                <option
+                                    v-for="f in factories"
+                                    :key="f.id"
+                                    :value="String(f.id)"
+                                >
+                                    {{ f.name }}
+                                </option>
+                            </select>
+                        </div>
+
+                        <!-- Tile Size -->
+                        <div>
+                            <label
+                                class="text-[12px] font-semibold text-[#1C1916]"
+                                >Tile Size *</label
+                            >
+                            <select
+                                v-model="createForm.tile_size_id"
+                                @change="onTileSizeSelect(createForm)"
+                                class="mt-1 h-9 w-full rounded border border-[#D8D2C5] bg-[#FAF8F5] px-2 text-[12.5px] text-[#1C1916] focus:border-[#B44422] focus:bg-white focus:outline-none"
+                            >
+                                <option value="">Select Size...</option>
+                                <option
+                                    v-for="s in tileSizes"
+                                    :key="s.id"
+                                    :value="String(s.id)"
+                                >
+                                    {{ s.label }} mm
+                                </option>
+                            </select>
+                        </div>
                     </div>
 
-                    <div class="grid grid-cols-2 gap-3 pt-2 text-[12.5px]">
-                        <div>
-                            <label class="block font-medium text-[#6B645B]"
-                                >SKU Pattern</label
-                            >
-                            <input
-                                type="text"
-                                disabled
-                                value="AUTO (e.g. RAK-60-WHT)"
-                                class="mt-1 h-8 w-full rounded border border-[#E5E0D8] bg-[#F3EFE8] px-2.5 font-mono text-[12px] text-[#8F887C]"
-                            />
+                    <!-- Packaging & Conversions Section -->
+                    <div
+                        class="rounded border border-[#E5E0D8] bg-[#FAF8F5] p-3.5"
+                    >
+                        <div
+                            class="flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wider text-[#6B645B]"
+                        >
+                            <Calculator class="h-3.5 w-3.5 text-[#B44422]" />
+                            <span>Packaging & Conversion Factors</span>
                         </div>
-                        <div>
-                            <label class="block font-medium text-[#6B645B]"
-                                >Tile Brand</label
-                            >
-                            <input
-                                type="text"
-                                disabled
-                                value="Select Brand..."
-                                class="mt-1 h-8 w-full rounded border border-[#E5E0D8] bg-[#F3EFE8] px-2.5 text-[12px] text-[#8F887C]"
-                            />
+
+                        <div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                            <div>
+                                <label
+                                    class="text-[12px] font-medium text-[#1C1916]"
+                                    >Pieces per Box *</label
+                                >
+                                <input
+                                    v-model.number="createForm.pieces_per_box"
+                                    type="number"
+                                    min="1"
+                                    class="mt-1 h-8 w-full rounded border border-[#D8D2C5] bg-white px-2 font-mono text-[13px] text-[#1C1916] focus:border-[#B44422] focus:outline-none"
+                                    required
+                                />
+                                <p
+                                    v-if="createForm.errors.pieces_per_box"
+                                    class="mt-1 text-[11px] text-rose-600"
+                                >
+                                    {{ createForm.errors.pieces_per_box }}
+                                </p>
+                            </div>
+
+                            <div>
+                                <label
+                                    class="text-[12px] font-medium text-[#1C1916]"
+                                    >Sqft per Piece *</label
+                                >
+                                <input
+                                    v-model.number="createForm.sqft_per_piece"
+                                    type="number"
+                                    step="0.0001"
+                                    min="0.0001"
+                                    class="mt-1 h-8 w-full rounded border border-[#D8D2C5] bg-white px-2 font-mono text-[13px] text-[#1C1916] focus:border-[#B44422] focus:outline-none"
+                                    required
+                                />
+                                <p
+                                    v-if="createForm.errors.sqft_per_piece"
+                                    class="mt-1 text-[11px] text-rose-600"
+                                >
+                                    {{ createForm.errors.sqft_per_piece }}
+                                </p>
+                            </div>
+
+                            <div>
+                                <label
+                                    class="text-[12px] font-medium text-[#1C1916]"
+                                    >Retail Box Price (৳) *</label
+                                >
+                                <input
+                                    v-model.number="createForm.box_price"
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    class="mt-1 h-8 w-full rounded border border-[#D8D2C5] bg-white px-2 font-mono text-[13px] text-[#1C1916] focus:border-[#B44422] focus:outline-none"
+                                    required
+                                />
+                                <p
+                                    v-if="createForm.errors.box_price"
+                                    class="mt-1 text-[11px] text-rose-600"
+                                >
+                                    {{ createForm.errors.box_price }}
+                                </p>
+                            </div>
                         </div>
-                        <div class="col-span-2">
-                            <label class="block font-medium text-[#6B645B]"
-                                >Tile Name (English & Bengali)</label
-                            >
-                            <input
-                                type="text"
-                                disabled
-                                value="e.g. Carrara White Glossy 600x600"
-                                class="mt-1 h-8 w-full rounded border border-[#E5E0D8] bg-[#F3EFE8] px-2.5 text-[12px] text-[#8F887C]"
-                            />
-                        </div>
-                        <div>
-                            <label class="block font-medium text-[#6B645B]"
-                                >Pieces per Box</label
-                            >
-                            <input
-                                type="text"
-                                disabled
-                                value="4 pcs"
-                                class="mt-1 h-8 w-full rounded border border-[#E5E0D8] bg-[#F3EFE8] px-2.5 font-mono text-[12px] text-[#8F887C]"
-                            />
-                        </div>
-                        <div>
-                            <label class="block font-medium text-[#6B645B]"
-                                >Box Price (৳)</label
-                            >
-                            <input
-                                type="text"
-                                disabled
-                                value="৳ 0.00"
-                                class="mt-1 h-8 w-full rounded border border-[#E5E0D8] bg-[#F3EFE8] px-2.5 font-mono text-[12px] text-[#8F887C]"
-                            />
+
+                        <!-- Real-time Computed Summary -->
+                        <div
+                            class="mt-3 flex items-center justify-between rounded border border-[#E5E0D8] bg-white p-2 text-[12px]"
+                        >
+                            <div class="text-[#6B645B]">
+                                Calculated Box Area:
+                                <strong class="font-mono text-[#1C1916]"
+                                    >{{
+                                        getFormCalculations(createForm).boxSqft
+                                    }}
+                                    SQFT</strong
+                                >
+                            </div>
+                            <div class="text-[#6B645B]">
+                                Equivalent Sqft Rate:
+                                <strong class="font-mono text-[#B44422]"
+                                    >৳
+                                    {{
+                                        getFormCalculations(createForm).sqftRate
+                                    }}
+                                    / SQFT</strong
+                                >
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                <div
-                    class="mt-6 flex items-center justify-end gap-2 border-t border-[#E5E0D8] pt-3"
-                >
-                    <button
-                        type="button"
-                        @click="closeModals"
-                        class="rounded border border-[#D8D2C5] bg-white px-3.5 py-1.5 text-[12.5px] font-medium text-[#1C1916] hover:bg-[#F3EFE8]"
+                    <!-- Tracking & Flags -->
+                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-3 pt-2">
+                        <label
+                            class="flex items-center gap-2 text-[12.5px] text-[#1C1916] cursor-pointer"
+                        >
+                            <input
+                                v-model="createForm.requires_batch"
+                                type="checkbox"
+                                class="h-4 w-4 rounded border-[#D8D2C5] text-[#B44422] focus:ring-[#B44422]"
+                            />
+                            <span>Require Batch / Lot</span>
+                        </label>
+
+                        <label
+                            class="flex items-center gap-2 text-[12.5px] text-[#1C1916] cursor-pointer"
+                        >
+                            <input
+                                v-model="createForm.requires_shade"
+                                type="checkbox"
+                                class="h-4 w-4 rounded border-[#D8D2C5] text-[#B44422] focus:ring-[#B44422]"
+                            />
+                            <span>Require Shade Tracking</span>
+                        </label>
+
+                        <label
+                            class="flex items-center gap-2 text-[12.5px] text-[#1C1916] cursor-pointer"
+                        >
+                            <input
+                                v-model="createForm.is_active"
+                                type="checkbox"
+                                class="h-4 w-4 rounded border-[#D8D2C5] text-[#B44422] focus:ring-[#B44422]"
+                            />
+                            <span>Active Product</span>
+                        </label>
+                    </div>
+
+                    <!-- Actions -->
+                    <div
+                        class="mt-6 flex items-center justify-end gap-2 border-t border-[#E5E0D8] pt-3"
                     >
-                        Close Preview
-                    </button>
-                    <button
-                        type="button"
-                        @click="closeModals"
-                        class="rounded bg-[#B44422] px-4 py-1.5 text-[12.5px] font-medium text-white hover:bg-[#993A1D]"
-                    >
-                        Got It
-                    </button>
-                </div>
+                        <button
+                            type="button"
+                            @click="closeModals"
+                            class="rounded border border-[#D8D2C5] bg-white px-3.5 py-1.5 text-[12.5px] font-medium text-[#1C1916] hover:bg-[#F3EFE8]"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            :disabled="createForm.processing"
+                            class="inline-flex items-center gap-1.5 rounded bg-[#B44422] px-4 py-1.5 text-[12.5px] font-medium text-white shadow-xs transition hover:bg-[#993A1D] disabled:opacity-50"
+                        >
+                            <Loader2
+                                v-if="createForm.processing"
+                                class="h-3.5 w-3.5 animate-spin"
+                            />
+                            <span>{{
+                                createForm.processing
+                                    ? "Saving..."
+                                    : "Save Product"
+                            }}</span>
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
 
-        <!-- Edit Product Modal (For Admin) -->
+        <!-- Edit Product Modal (Fixed & Full Working Form) -->
         <div
             v-if="showEditProductModal && activeProduct"
             class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs"
             @click.self="closeModals"
         >
             <div
-                class="w-full max-w-md rounded-lg border border-[#E5E0D8] bg-white p-6 shadow-xl"
+                class="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-lg border border-[#E5E0D8] bg-white p-6 shadow-xl"
             >
                 <div
                     class="flex items-center justify-between border-b border-[#E5E0D8] pb-3"
                 >
                     <div class="flex items-center gap-2">
-                        <Edit3 class="h-4 w-4 text-[#B44422]" />
+                        <div
+                            class="flex h-7 w-7 items-center justify-center rounded bg-[#1C1916] text-white"
+                        >
+                            <Edit3 class="h-4 w-4" />
+                        </div>
                         <h2 class="text-[16px] font-semibold text-[#1C1916]">
-                            Edit Product #{{ activeProduct.id }}
+                            Edit Product: {{ activeProduct.sku }}
                         </h2>
                     </div>
                     <button
@@ -984,78 +1376,333 @@ const closeModals = () => {
                     </button>
                 </div>
 
-                <div class="mt-4 space-y-2.5 text-[13px]">
-                    <div
-                        class="flex justify-between border-b border-[#F0ECE4] py-1"
-                    >
-                        <span class="text-[#6B645B]">SKU:</span>
-                        <span class="font-mono font-semibold text-[#1C1916]">{{
-                            activeProduct.sku
-                        }}</span>
+                <form @submit.prevent="submitEdit" class="mt-4 space-y-4">
+                    <!-- Identity Section -->
+                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <!-- SKU -->
+                        <div>
+                            <label
+                                class="text-[12px] font-semibold text-[#1C1916]"
+                                >SKU Code *</label
+                            >
+                            <input
+                                v-model="editForm.sku"
+                                type="text"
+                                class="mt-1 h-9 w-full rounded border border-[#D8D2C5] bg-[#FAF8F5] px-2.5 font-mono text-[13px] text-[#1C1916] uppercase focus:border-[#B44422] focus:bg-white focus:outline-none"
+                                required
+                            />
+                            <p
+                                v-if="editForm.errors.sku"
+                                class="mt-1 text-[11px] text-rose-600"
+                            >
+                                {{ editForm.errors.sku }}
+                            </p>
+                        </div>
+
+                        <!-- Barcode -->
+                        <div>
+                            <label
+                                class="text-[12px] font-semibold text-[#1C1916]"
+                                >Barcode</label
+                            >
+                            <input
+                                v-model="editForm.barcode"
+                                type="text"
+                                class="mt-1 h-9 w-full rounded border border-[#D8D2C5] bg-[#FAF8F5] px-2.5 font-mono text-[13px] text-[#1C1916] focus:border-[#B44422] focus:bg-white focus:outline-none"
+                            />
+                            <p
+                                v-if="editForm.errors.barcode"
+                                class="mt-1 text-[11px] text-rose-600"
+                            >
+                                {{ editForm.errors.barcode }}
+                            </p>
+                        </div>
+
+                        <!-- Name EN -->
+                        <div>
+                            <label
+                                class="text-[12px] font-semibold text-[#1C1916]"
+                                >Product Name (English) *</label
+                            >
+                            <input
+                                v-model="editForm.name"
+                                type="text"
+                                class="mt-1 h-9 w-full rounded border border-[#D8D2C5] bg-[#FAF8F5] px-2.5 text-[13px] text-[#1C1916] focus:border-[#B44422] focus:bg-white focus:outline-none"
+                                required
+                            />
+                            <p
+                                v-if="editForm.errors.name"
+                                class="mt-1 text-[11px] text-rose-600"
+                            >
+                                {{ editForm.errors.name }}
+                            </p>
+                        </div>
+
+                        <!-- Name BN -->
+                        <div>
+                            <label
+                                class="text-[12px] font-semibold text-[#1C1916]"
+                                >Product Name (বাংলা)</label
+                            >
+                            <input
+                                v-model="editForm.name_bn"
+                                type="text"
+                                class="mt-1 h-9 w-full rounded border border-[#D8D2C5] bg-[#FAF8F5] px-2.5 text-[13px] text-[#1C1916] focus:border-[#B44422] focus:bg-white focus:outline-none"
+                            />
+                            <p
+                                v-if="editForm.errors.name_bn"
+                                class="mt-1 text-[11px] text-rose-600"
+                            >
+                                {{ editForm.errors.name_bn }}
+                            </p>
+                        </div>
                     </div>
+
+                    <!-- Category / Masters Section -->
                     <div
-                        class="flex justify-between border-b border-[#F0ECE4] py-1"
+                        class="grid grid-cols-1 gap-3 sm:grid-cols-3 pt-2 border-t border-[#EFECE6]"
                     >
-                        <span class="text-[#6B645B]">Product Name:</span>
-                        <span class="font-medium text-[#1C1916]">{{
-                            activeProduct.name
-                        }}</span>
+                        <!-- Brand -->
+                        <div>
+                            <label
+                                class="text-[12px] font-semibold text-[#1C1916]"
+                                >Brand</label
+                            >
+                            <select
+                                v-model="editForm.brand_id"
+                                class="mt-1 h-9 w-full rounded border border-[#D8D2C5] bg-[#FAF8F5] px-2 text-[12.5px] text-[#1C1916] focus:border-[#B44422] focus:bg-white focus:outline-none"
+                            >
+                                <option value="">None</option>
+                                <option
+                                    v-for="b in brands"
+                                    :key="b.id"
+                                    :value="String(b.id)"
+                                >
+                                    {{ b.name }}
+                                </option>
+                            </select>
+                        </div>
+
+                        <!-- Factory -->
+                        <div>
+                            <label
+                                class="text-[12px] font-semibold text-[#1C1916]"
+                                >Factory</label
+                            >
+                            <select
+                                v-model="editForm.factory_id"
+                                class="mt-1 h-9 w-full rounded border border-[#D8D2C5] bg-[#FAF8F5] px-2 text-[12.5px] text-[#1C1916] focus:border-[#B44422] focus:bg-white focus:outline-none"
+                            >
+                                <option value="">None</option>
+                                <option
+                                    v-for="f in factories"
+                                    :key="f.id"
+                                    :value="String(f.id)"
+                                >
+                                    {{ f.name }}
+                                </option>
+                            </select>
+                        </div>
+
+                        <!-- Tile Size -->
+                        <div>
+                            <label
+                                class="text-[12px] font-semibold text-[#1C1916]"
+                                >Tile Size *</label
+                            >
+                            <select
+                                v-model="editForm.tile_size_id"
+                                @change="onTileSizeSelect(editForm)"
+                                class="mt-1 h-9 w-full rounded border border-[#D8D2C5] bg-[#FAF8F5] px-2 text-[12.5px] text-[#1C1916] focus:border-[#B44422] focus:bg-white focus:outline-none"
+                            >
+                                <option value="">Select Size...</option>
+                                <option
+                                    v-for="s in tileSizes"
+                                    :key="s.id"
+                                    :value="String(s.id)"
+                                >
+                                    {{ s.label }} mm
+                                </option>
+                            </select>
+                        </div>
                     </div>
+
+                    <!-- Packaging & Conversions Section -->
                     <div
-                        class="flex justify-between border-b border-[#F0ECE4] py-1"
+                        class="rounded border border-[#E5E0D8] bg-[#FAF8F5] p-3.5"
                     >
-                        <span class="text-[#6B645B]">Brand:</span>
-                        <span class="text-[#1C1916]">{{
-                            activeProduct.brand?.name ?? "None"
-                        }}</span>
-                    </div>
-                    <div
-                        class="flex justify-between border-b border-[#F0ECE4] py-1"
-                    >
-                        <span class="text-[#6B645B]">Packaging:</span>
-                        <span class="font-mono text-[#1C1916]"
-                            >{{ activeProduct.pieces_per_box }} pcs /
-                            {{
-                                formatNumber(activeProduct.sqft_per_box, 2)
-                            }}
-                            sqft</span
+                        <div
+                            class="flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wider text-[#6B645B]"
                         >
-                    </div>
-                    <div
-                        class="flex justify-between border-b border-[#F0ECE4] py-1"
-                    >
-                        <span class="text-[#6B645B]">Box Price:</span>
-                        <span class="font-mono font-semibold text-[#B44422]">{{
-                            formatCurrency(getBoxPrice(activeProduct))
-                        }}</span>
+                            <Calculator class="h-3.5 w-3.5 text-[#B44422]" />
+                            <span>Packaging & Pricing</span>
+                        </div>
+
+                        <div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                            <div>
+                                <label
+                                    class="text-[12px] font-medium text-[#1C1916]"
+                                    >Pieces per Box *</label
+                                >
+                                <input
+                                    v-model.number="editForm.pieces_per_box"
+                                    type="number"
+                                    min="1"
+                                    class="mt-1 h-8 w-full rounded border border-[#D8D2C5] bg-white px-2 font-mono text-[13px] text-[#1C1916] focus:border-[#B44422] focus:outline-none"
+                                    required
+                                />
+                                <p
+                                    v-if="editForm.errors.pieces_per_box"
+                                    class="mt-1 text-[11px] text-rose-600"
+                                >
+                                    {{ editForm.errors.pieces_per_box }}
+                                </p>
+                            </div>
+
+                            <div>
+                                <label
+                                    class="text-[12px] font-medium text-[#1C1916]"
+                                    >Sqft per Piece *</label
+                                >
+                                <input
+                                    v-model.number="editForm.sqft_per_piece"
+                                    type="number"
+                                    step="0.0001"
+                                    min="0.0001"
+                                    class="mt-1 h-8 w-full rounded border border-[#D8D2C5] bg-white px-2 font-mono text-[13px] text-[#1C1916] focus:border-[#B44422] focus:outline-none"
+                                    required
+                                />
+                                <p
+                                    v-if="editForm.errors.sqft_per_piece"
+                                    class="mt-1 text-[11px] text-rose-600"
+                                >
+                                    {{ editForm.errors.sqft_per_piece }}
+                                </p>
+                            </div>
+
+                            <div>
+                                <label
+                                    class="text-[12px] font-medium text-[#1C1916]"
+                                    >Retail Box Price (৳) *</label
+                                >
+                                <input
+                                    v-model.number="editForm.box_price"
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    class="mt-1 h-8 w-full rounded border border-[#D8D2C5] bg-white px-2 font-mono text-[13px] text-[#1C1916] focus:border-[#B44422] focus:outline-none"
+                                    required
+                                />
+                                <p
+                                    v-if="editForm.errors.box_price"
+                                    class="mt-1 text-[11px] text-rose-600"
+                                >
+                                    {{ editForm.errors.box_price }}
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Real-time Computed Summary -->
+                        <div
+                            class="mt-3 flex items-center justify-between rounded border border-[#E5E0D8] bg-white p-2 text-[12px]"
+                        >
+                            <div class="text-[#6B645B]">
+                                Calculated Box Area:
+                                <strong class="font-mono text-[#1C1916]"
+                                    >{{
+                                        getFormCalculations(editForm).boxSqft
+                                    }}
+                                    SQFT</strong
+                                >
+                            </div>
+                            <div class="text-[#6B645B]">
+                                Equivalent Sqft Rate:
+                                <strong class="font-mono text-[#B44422]"
+                                    >৳
+                                    {{
+                                        getFormCalculations(editForm).sqftRate
+                                    }}
+                                    / SQFT</strong
+                                >
+                            </div>
+                        </div>
                     </div>
 
-                    <div
-                        class="mt-3 rounded border border-[#E5E0D8] bg-[#F7F5F0] p-2.5 text-[12px] text-[#6B645B]"
-                    >
-                        Admin action button is active. Form fields editing will
-                        be wired in the masterdata form step.
-                    </div>
-                </div>
+                    <!-- Tracking & Flags -->
+                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-3 pt-2">
+                        <label
+                            class="flex items-center gap-2 text-[12.5px] text-[#1C1916] cursor-pointer"
+                        >
+                            <input
+                                v-model="editForm.requires_batch"
+                                type="checkbox"
+                                class="h-4 w-4 rounded border-[#D8D2C5] text-[#B44422] focus:ring-[#B44422]"
+                            />
+                            <span>Require Batch / Lot</span>
+                        </label>
 
-                <div
-                    class="mt-5 flex items-center justify-end gap-2 border-t border-[#E5E0D8] pt-3"
-                >
-                    <button
-                        type="button"
-                        @click="closeModals"
-                        class="rounded border border-[#D8D2C5] bg-white px-3.5 py-1.5 text-[12px] font-medium text-[#1C1916] hover:bg-[#F3EFE8]"
+                        <label
+                            class="flex items-center gap-2 text-[12.5px] text-[#1C1916] cursor-pointer"
+                        >
+                            <input
+                                v-model="editForm.requires_shade"
+                                type="checkbox"
+                                class="h-4 w-4 rounded border-[#D8D2C5] text-[#B44422] focus:ring-[#B44422]"
+                            />
+                            <span>Require Shade Tracking</span>
+                        </label>
+
+                        <label
+                            class="flex items-center gap-2 text-[12.5px] text-[#1C1916] cursor-pointer"
+                        >
+                            <input
+                                v-model="editForm.is_active"
+                                type="checkbox"
+                                class="h-4 w-4 rounded border-[#D8D2C5] text-[#B44422] focus:ring-[#B44422]"
+                            />
+                            <span>Active Product</span>
+                        </label>
+                    </div>
+
+                    <!-- Actions -->
+                    <div
+                        class="mt-6 flex items-center justify-between border-t border-[#E5E0D8] pt-3"
                     >
-                        Close
-                    </button>
-                    <button
-                        type="button"
-                        @click="closeModals"
-                        class="rounded bg-[#1C1916] px-3.5 py-1.5 text-[12px] font-medium text-white hover:bg-[#38332C]"
-                    >
-                        Done
-                    </button>
-                </div>
+                        <button
+                            type="button"
+                            @click="deleteProduct(activeProduct)"
+                            class="inline-flex items-center gap-1 text-[12px] font-medium text-rose-600 hover:underline"
+                        >
+                            <Trash2 class="h-3.5 w-3.5" />
+                            <span>Delete Product</span>
+                        </button>
+
+                        <div class="flex items-center gap-2">
+                            <button
+                                type="button"
+                                @click="closeModals"
+                                class="rounded border border-[#D8D2C5] bg-white px-3.5 py-1.5 text-[12.5px] font-medium text-[#1C1916] hover:bg-[#F3EFE8]"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="submit"
+                                :disabled="editForm.processing"
+                                class="inline-flex items-center gap-1.5 rounded bg-[#1C1916] px-4 py-1.5 text-[12.5px] font-medium text-white shadow-xs transition hover:bg-[#38332C] disabled:opacity-50"
+                            >
+                                <Loader2
+                                    v-if="editForm.processing"
+                                    class="h-3.5 w-3.5 animate-spin"
+                                />
+                                <span>{{
+                                    editForm.processing
+                                        ? "Saving..."
+                                        : "Update Product"
+                                }}</span>
+                            </button>
+                        </div>
+                    </div>
+                </form>
             </div>
         </div>
 
@@ -1250,8 +1897,25 @@ const closeModals = () => {
                 </div>
 
                 <div
-                    class="mt-5 flex justify-end border-t border-[#E5E0D8] pt-3"
+                    class="mt-5 flex items-center justify-between border-t border-[#E5E0D8] pt-3"
                 >
+                    <button
+                        v-if="canManage && activeProduct"
+                        type="button"
+                        @click="
+                            () => {
+                                const p = activeProduct;
+                                closeModals();
+                                if (p) openEditProduct(p);
+                            }
+                        "
+                        class="inline-flex items-center gap-1 text-[12px] font-medium text-[#B44422] hover:underline"
+                    >
+                        <Edit3 class="h-3.5 w-3.5" />
+                        <span>Edit This Product</span>
+                    </button>
+                    <div v-else></div>
+
                     <button
                         type="button"
                         @click="closeModals"

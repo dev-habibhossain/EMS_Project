@@ -39,6 +39,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('pos/checkout', [PosController::class, 'checkout'])->name('pos.checkout');
 
     Route::get('products', [ProductController::class, 'index'])->name('products.index');
+    Route::post('products', [ProductController::class, 'store'])->name('products.store');
+    Route::put('products/{product}', [ProductController::class, 'update'])->name('products.update');
+    Route::delete('products/{product}', [ProductController::class, 'destroy'])->name('products.destroy');
     Route::get('brands', [BrandController::class, 'index'])->name('brands.index');
     Route::get('factories', [FactoryController::class, 'index'])->name('factories.index');
     Route::get('tile-sizes', [TileSizeController::class, 'index'])->name('tile-sizes.index');

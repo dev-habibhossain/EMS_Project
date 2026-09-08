@@ -13,6 +13,7 @@ export interface ProductTileSize {
     label: string;
     length_mm?: number | null;
     width_mm?: number | null;
+    default_sqft_per_piece?: string | number | null;
 }
 
 export interface ProductPriceItem {
