@@ -39,6 +39,12 @@ export interface ProductListItem {
     tile_size: ProductTileSize | null;
     prices: ProductPriceItem[];
     total_sqft: number | string | null;
+    warehouse_stocks?: Array<{
+        id: number;
+        warehouse_id: number;
+        qty_sqft: string | number;
+        warehouse?: { id: number; name: string; code: string };
+    }>;
 }
 
 export interface PaginationLink {
@@ -68,7 +74,7 @@ export interface ProductFilters {
     brand_id?: string | number;
     factory_id?: string | number;
     tile_size_id?: string | number;
-    status?: 'all' | 'active' | 'inactive';
+    status?: "all" | "active" | "inactive";
     per_page?: string | number;
 }
 

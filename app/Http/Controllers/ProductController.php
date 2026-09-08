@@ -26,6 +26,7 @@ class ProductController extends Controller
                 'tileFactory:id,name',
                 'tileSize:id,label,length_mm,width_mm',
                 'prices:id,product_id,unit_code,price',
+                'warehouseStocks.warehouse:id,name,code',
             ])
             ->withSum('warehouseStocks as total_sqft', 'qty_sqft')
             ->when($request->filled('q'), function (Builder $query) use ($request): void {
