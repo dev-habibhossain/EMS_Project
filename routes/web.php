@@ -43,6 +43,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('products/{product}', [ProductController::class, 'update'])->name('products.update');
     Route::delete('products/{product}', [ProductController::class, 'destroy'])->name('products.destroy');
     Route::get('brands', [BrandController::class, 'index'])->name('brands.index');
+    Route::post('brands', [BrandController::class, 'store'])->name('brands.store');
+    Route::put('brands/{brand}', [BrandController::class, 'update'])->name('brands.update');
+    Route::delete('brands/{brand}', [BrandController::class, 'destroy'])->name('brands.destroy');
     Route::get('factories', [FactoryController::class, 'index'])->name('factories.index');
     Route::get('tile-sizes', [TileSizeController::class, 'index'])->name('tile-sizes.index');
     Route::get('shades', [ShadeController::class, 'index'])->name('shades.index');
